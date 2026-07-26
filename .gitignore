@@ -1,26 +1,35 @@
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
+*$py.class
 
 # C extensions
 *.so
 
 # Distribution / packaging
 .Python
-env/
-bin/
 build/
 develop-eggs/
 dist/
+downloads/
 eggs/
+.eggs/
 lib/
 lib64/
 parts/
 sdist/
 var/
+wheels/
 *.egg-info/
 .installed.cfg
 *.egg
+MANIFEST
+
+# PyInstaller
+#  Usually these files are written by a python script from a template
+#  before PyInstaller builds the exe, so as to inject date/other infos into it.
+*.manifest
+*.spec
 
 # Installer logs
 pip-log.txt
@@ -29,12 +38,121 @@ pip-delete-this-directory.txt
 # Unit test / coverage reports
 htmlcov/
 .tox/
-.coverage*
+.coverage
+.coverage.*
 .cache
 nosetests.xml
 coverage.xml
-nose2-junit.xml
+*.cover
+.hypothesis/
+.pytest_cache/
+
+# ruff
+.ruff_cache
+
+# Translations
+*.mo
+*.pot
+
+# Django stuff:
+*.log
+local_settings.py
+db.sqlite3
+
+# Flask stuff:
+instance/
+.webassets-cache
+
+# Scrapy stuff:
+.scrapy
 
 # Sphinx documentation
 docs/_build/
 
+# PyBuilder
+target/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# pyenv
+.python-version
+
+# celery beat schedule file
+celerybeat-schedule
+
+# SageMath parsed files
+*.sage.py
+
+# Environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Spyder project settings
+.spyderproject
+.spyproject
+
+# Rope project settings
+.ropeproject
+
+# mkdocs documentation
+/I
+
+# mypy
+.mypy_cache/
+.directory
+
+# PyCharm
+.idea/dataSources.local.xml
+
+# pdm
+#   Similar to Pipfile.lock, it is generally recommended to include pdm.lock in version control.
+#pdm.lock
+#   pdm stores project-wide configurations in .pdm.toml, but it is recommended to not include it
+#   in version control.
+#   https://pdm.fming.dev/#use-with-ide
+.pdm.toml
+.pdm-python
+
+# PEP 582; used by e.g. github.com/David-OConnor/pyflow and github.com/pdm-project/pdm
+__pypackages__/
+
+# AI shit
+.antigravitycli
+
+# Project-specific
+*.bin
+*.crt
+*.db
+*.der
+*.dll
+*.exe
+*.mkv
+*.mp4
+*.pem
+*.wvd
+binaries
+cache
+config
+data
+device_cert
+device_client_id_blob
+device_private_key
+device_vmp_blob
+downloads
+output
+temp
+wv.json
+wndstate.json
+!vinetrimmer/config
+
+# Docker Compose local configuration
+.env
+docker-compose.yml
+
+.ruff_cache
