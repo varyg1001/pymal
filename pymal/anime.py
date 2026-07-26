@@ -305,7 +305,14 @@ class Anime(metaclass=singleton_factory.SingletonFactory):
 
         # Getting title
         h1 = content_wrapper_div.h1
-        self.__title = (h1.find("strong") or h1).get_text(strip=True)
+        title_span = (
+            h1.find("span", class_="h1-title")
+            or h1.find("span", attrs={"itemprop": "name"})
+            or h1.find("strong")
+        )
+        self.__title = (
+            title_span.get_text(strip=True) if title_span else h1.contents[0].strip()
+        )
 
         # Getting content <div>
         content_div = content_wrapper_div.find(name="div", attrs={"id": "content"})
