@@ -10,17 +10,19 @@ Tests for the fixes applied in the fork:
 All tests use minimal inline HTML fixtures (no network calls) so they run
 offline and never rely on a real MAL session.
 """
+
 import unittest
 from unittest.mock import Mock, patch
+
 import bs4
 
 from pymal import anime, global_functions
-from pymal import exceptions
 
 
 # ---------------------------------------------------------------------------
 # Minimal HTML helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_content_wrapper(
     title="Sousou no Frieren",
@@ -48,11 +50,12 @@ def _make_content_wrapper(
       - td > div.leftside > metadata divs
     Main content cell has exactly 2 top-level divs to satisfy the reload check.
     """
+
     def _meta(label, value_html):
         return (
             f'<div class="spaceit_pad">'
             f'<span class="dark_text">{label}:</span> {value_html}'
-            f'</div>'
+            f"</div>"
         )
 
     producer_links = "".join(
@@ -135,37 +138,60 @@ def _make_anime_instance(mal_id=52991):
     anm._is_loaded = False
     anm._Anime__mal_url = f"https://myanimelist.net/anime/{mal_id}"
     for attr in [
-        "__title", "__image_url", "__english", "__synonyms", "__japanese",
-        "__type", "__status", "__rating", "__synopsis",
+        "__title",
+        "__image_url",
+        "__english",
+        "__synonyms",
+        "__japanese",
+        "__type",
+        "__status",
+        "__rating",
+        "__synopsis",
     ]:
         setattr(anm, f"_Anime{attr}", "")
-    for attr in ["__start_time", "__end_time", "__duration", "__rank",
-                 "__popularity", "__episodes"]:
+    for attr in [
+        "__start_time",
+        "__end_time",
+        "__duration",
+        "__rank",
+        "__popularity",
+        "__episodes",
+    ]:
         setattr(anm, f"_Anime{attr}", 0)
     anm._Anime__score = 0.0
     anm._Anime__creators = {}
     anm._Anime__genres = {}
     anm.related_str_to_set_dict = {
-        'Adaptation:': set(), 'Character:': set(), 'Sequel:': set(),
-        'Prequel:': set(), 'Spin-off:': set(), 'Alternative version:': set(),
-        'Side story:': set(), 'Summary:': set(), 'Other:': set(),
-        'Parent story:': set(), 'Alternative setting:': set(),
-        'Full story:': set(),
+        "Adaptation:": set(),
+        "Character:": set(),
+        "Sequel:": set(),
+        "Prequel:": set(),
+        "Spin-off:": set(),
+        "Alternative version:": set(),
+        "Side story:": set(),
+        "Summary:": set(),
+        "Other:": set(),
+        "Parent story:": set(),
+        "Alternative setting:": set(),
+        "Full story:": set(),
     }
     return anm
 
 
 def _reload(anm, cwd):
     """Run reload() with get_content_wrapper_div mocked and review/rec skipped."""
-    with patch.object(global_functions, "get_content_wrapper_div", return_value=cwd), \
-         patch.object(anm, "_Anime__parse_reviews", return_value=None), \
-         patch.object(anm, "_Anime__parse_recommendations", return_value=None):
+    with (
+        patch.object(global_functions, "get_content_wrapper_div", return_value=cwd),
+        patch.object(anm, "_Anime__parse_reviews", return_value=None),
+        patch.object(anm, "_Anime__parse_recommendations", return_value=None),
+    ):
         anm.reload()
 
 
 # ---------------------------------------------------------------------------
 # Issue 1: lxml parser in global_functions
 # ---------------------------------------------------------------------------
+
 
 class TestLxmlParser(unittest.TestCase):
     """global_functions must use lxml, not html5lib."""
@@ -176,7 +202,10 @@ class TestLxmlParser(unittest.TestCase):
         self.assertIsNotNone(soup.find(id="myanimelist"))
 
     def test_no_html5lib_in_global_functions(self):
-        import pymal.global_functions as gf, inspect
+        import inspect
+
+        import pymal.global_functions as gf
+
         src = inspect.getsource(gf)
         self.assertNotIn("html5lib", src)
         self.assertIn("lxml", src)
@@ -185,6 +214,7 @@ class TestLxmlParser(unittest.TestCase):
 # ---------------------------------------------------------------------------
 # Issue 2: search_provider None guard
 # ---------------------------------------------------------------------------
+
 
 class TestSearchProviderNoneGuard(unittest.TestCase):
     """__get_list must return frozenset() when #content is absent."""
@@ -209,7 +239,7 @@ class TestSearchProviderNoneGuard(unittest.TestCase):
                 search_provider.SearchProvider,
                 "_SearchProvider__SEARCH_URL",
                 new_callable=lambda: property(
-                    lambda self: "https://myanimelist.net/anime.php"
+                    lambda _self: "https://myanimelist.net/anime.php"
                 ),
             ):
                 result = provider._SearchProvider__get_list("test", 0)
@@ -222,15 +252,17 @@ class TestSearchProviderNoneGuard(unittest.TestCase):
 # Issue 3: h1 <strong> title fix
 # ---------------------------------------------------------------------------
 
-class TestAnimeTitleStrong(unittest.TestCase):
 
+class TestAnimeTitleStrong(unittest.TestCase):
     def _extract_title(self, h1_html):
         soup = bs4.BeautifulSoup(h1_html, "lxml")
         h1 = soup.find("h1")
         return (h1.find("strong") or h1).get_text(strip=True)
 
     def test_title_from_strong_tag(self):
-        html = '<h1 class="title-name h1_bold_none"><strong>Sousou no Frieren</strong></h1>'
+        html = (
+            '<h1 class="title-name h1_bold_none"><strong>Sousou no Frieren</strong></h1>'
+        )
         self.assertEqual(self._extract_title(html), "Sousou no Frieren")
 
     def test_title_fallback_no_strong(self):
@@ -248,8 +280,8 @@ class TestAnimeTitleStrong(unittest.TestCase):
 # Issue 4: no <tbody> in table
 # ---------------------------------------------------------------------------
 
-class TestNoTbody(unittest.TestCase):
 
+class TestNoTbody(unittest.TestCase):
     def test_find_tr_without_tbody(self):
         html = "<table><tr><td>A</td><td>B</td></tr></table>"
         table = bs4.BeautifulSoup(html, "lxml").find("table")
@@ -271,8 +303,8 @@ class TestNoTbody(unittest.TestCase):
 # Issue 5: sidebar label-based parsing — full reload integration
 # ---------------------------------------------------------------------------
 
-class TestAnimeReloadSidebar(unittest.TestCase):
 
+class TestAnimeReloadSidebar(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.anm = _make_anime_instance(52991)
@@ -363,15 +395,18 @@ class TestAnimeReloadMissingOptionalFields(unittest.TestCase):
 # Issue 7: niquests import — no stray `import requests`
 # ---------------------------------------------------------------------------
 
-class TestNiquestsImport(unittest.TestCase):
 
+class TestNiquestsImport(unittest.TestCase):
     def _check(self, module_path):
-        import importlib, inspect
+        import importlib
+        import inspect
+
         mod = importlib.import_module(module_path)
         src = inspect.getsource(mod)
         self.assertIn("niquests", src, f"{module_path} should use niquests")
-        self.assertNotIn("import requests", src,
-                         f"{module_path} must not use `import requests`")
+        self.assertNotIn(
+            "import requests", src, f"{module_path} must not use `import requests`"
+        )
 
     def test_global_functions(self):
         self._check("pymal.global_functions")
@@ -390,8 +425,8 @@ class TestNiquestsImport(unittest.TestCase):
 # global_functions helpers
 # ---------------------------------------------------------------------------
 
-class TestGlobalFunctionsHelpers(unittest.TestCase):
 
+class TestGlobalFunctionsHelpers(unittest.TestCase):
     def test_make_counter_unknown(self):
         self.assertEqual(global_functions.make_counter("Unknown"), float("inf"))
 
@@ -421,8 +456,8 @@ class TestGlobalFunctionsHelpers(unittest.TestCase):
 # Anime object behaviour (no network)
 # ---------------------------------------------------------------------------
 
-class TestAnimeObject(unittest.TestCase):
 
+class TestAnimeObject(unittest.TestCase):
     def test_anime_id(self):
         a = anime.Anime(1887)
         self.assertEqual(a.id, 1887)
