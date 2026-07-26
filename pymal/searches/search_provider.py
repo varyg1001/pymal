@@ -58,6 +58,26 @@ class SearchProvider(metaclass=Singleton):
         :return: the found results
         :rtype: frozenset
         """
+        import contextlib
+
+        # Try modern MAL prefix search JSON API endpoint
+        prefix_url = f"{consts.HOST_NAME}/search/prefix.json?type={self._SEARCH_NAME}&keyword={parse.quote(search_line)}"
+        with contextlib.suppress(Exception):
+            sock = global_functions._connect(prefix_url)
+            if sock.status_code == 200:
+                data = sock.json()
+                results = set()
+                for category in data.get("categories", []):
+                    if category.get("type") == self._SEARCH_NAME or not self._SEARCH_NAME:
+                        for item in category.get("items", []):
+                            item_id = item.get("id")
+                            if item_id:
+                                with contextlib.suppress(Exception):
+                                    results.add(self._SEARCHED_OBJECT(str(item_id)))
+                if results:
+                    return frozenset(results)
+
+        # Fallback to legacy scraping method
         ret = set()
         current_index = 0
         res = self.__get_list(search_line, current_index)
@@ -71,5 +91,6 @@ class SearchProvider(metaclass=Singleton):
         for x in ret:
             parts = x.split(self._SEARCHED_URL_SUFFIX)
             if len(parts) > 1:
-                results.add(self._SEARCHED_OBJECT(parts[1]))
+                with contextlib.suppress(Exception):
+                    results.add(self._SEARCHED_OBJECT(parts[1]))
         return frozenset(results)

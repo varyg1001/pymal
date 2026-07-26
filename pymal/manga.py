@@ -5,7 +5,6 @@ __contact__ = "Name Of Current Guardian of this file <email@address>"
 
 from urllib import request
 
-import bs4
 import niquests
 import singleton_factory
 
@@ -279,7 +278,6 @@ class Manga(metaclass=singleton_factory.SingletonFactory):
         """
         :exception exceptions.FailedToReloadError: when failed.
         """
-        import os
 
         from pymal import exceptions
 
@@ -289,256 +287,205 @@ class Manga(metaclass=singleton_factory.SingletonFactory):
         )
 
         # Getting title <div>
-        self.__title = content_wrapper_div.h1.contents[1].strip()
+        h1 = content_wrapper_div.h1
+        self.__title = (h1.find("strong") or h1).get_text(strip=True)
 
         # Getting content <div>
-        content_div = content_wrapper_div.find(
-            name="div", attrs={"id": "content"}, recursive=False
-        )
+        content_div = content_wrapper_div.find(name="div", attrs={"id": "content"})
 
         if content_div is None:
             raise exceptions.FailedToReloadError(content_wrapper_div)
 
         content_table = content_div.table
-
-        contents = content_table.tbody.tr.findAll(name="td", recursive=False)
+        tr = content_table.find(name="tr")
+        contents = tr.find_all(name="td", recursive=False)
 
         # Data from side content
         side_content = contents[0]
-        side_contents_divs = side_content.findAll(name="div", recursive=False)
+        leftside = side_content.find("div", class_="leftside") or side_content
 
         # Getting manga image url <img>
-        img_div = side_contents_divs[0]
-        img_link = img_div.find(name="a")
-        if img_link is None:
-            raise exceptions.FailedToReloadError(content_wrapper_div)
-        self.__image_url = img_link.img["src"]
-
-        side_contents_divs_index = 4
-
-        # english <div>
-        english_div = side_contents_divs[side_contents_divs_index]
-        if global_functions.check_side_content_div("English", english_div):
-            english_span, self_english = english_div.contents
-            self.__english = self_english.strip()
-            side_contents_divs_index += 1
+        img = leftside.find(name="img")
+        if img is None:
+            self.__image_url = ""
         else:
-            self.__english = ""
+            self.__image_url = img.get("data-src") or img.get("src") or ""
 
-        # synonyms <div>
-        synonyms_div = side_contents_divs[side_contents_divs_index]
-        if global_functions.check_side_content_div("Synonyms", synonyms_div):
-            synonyms_span, self_synonyms = synonyms_div.contents
-            self.__synonyms = self_synonyms.strip()
-            side_contents_divs_index += 1
-        else:
-            self.__synonyms = ""
+        # Reset all sidebar fields before label-based lookup
+        self.__english = ""
+        self.__synonyms = ""
+        self.__japanese = ""
+        self.__type = ""
+        self.__volumes = 0
+        self.__chapters = 0
+        self.__status = ""
+        self.__start_time = 0
+        self.__end_time = 0
+        self.__creators = {}
+        self.__genres = {}
+        self.__score = 0.0
+        self.__rank = 0
+        self.__popularity = 0
 
-        # japanese <div>
-        japanese_div = side_contents_divs[side_contents_divs_index]
-        if global_functions.check_side_content_div("Japanese", japanese_div):
-            japanese_span, self_japanese = japanese_div.contents
-            self.__japanese = self_japanese.strip()
-            side_contents_divs_index += 1
-        else:
-            self.__japanese = ""
+        # Parse all metadata fields by label text (span.dark_text)
+        for div in leftside.find_all("div"):
+            span = div.find("span", class_="dark_text")
+            if not span:
+                continue
+            label = span.get_text(strip=True).rstrip(":")
+            value = div.get_text(strip=True)
+            label_with_colon = span.get_text(strip=True)
+            if value.startswith(label_with_colon):
+                value = value[len(label_with_colon) :].strip()
 
-        # type <div>
-        type_div = side_contents_divs[side_contents_divs_index]
-        if not global_functions.check_side_content_div("Type", type_div):
-            raise exceptions.FailedToReloadError(content_wrapper_div)
-        type_span, self_type = type_div.contents
-        self.__type = self_type.strip()
-        side_contents_divs_index += 1
-
-        # volumes <div>
-        volumes_div = side_contents_divs[side_contents_divs_index]
-        if not global_functions.check_side_content_div("Volumes", volumes_div):
-            raise exceptions.FailedToReloadError(content_wrapper_div)
-        volumes_span, self_volumes = volumes_div.contents
-        self.__volumes = global_functions.make_counter(self_volumes.strip())
-        side_contents_divs_index += 1
-
-        # chapters <div>
-        chapters_div = side_contents_divs[side_contents_divs_index]
-        if not global_functions.check_side_content_div("Chapters", chapters_div):
-            raise exceptions.FailedToReloadError(content_wrapper_div)
-        chapters_span, self_chapters = chapters_div.contents
-        self.__chapters = global_functions.make_counter(self_chapters.strip())
-        side_contents_divs_index += 1
-
-        # status <div>
-        status_div = side_contents_divs[side_contents_divs_index]
-        if not global_functions.check_side_content_div("Status", status_div):
-            raise exceptions.FailedToReloadError(content_wrapper_div)
-        status_span, self.__status = status_div.contents
-        self.__status = self.__status.strip()
-        side_contents_divs_index += 1
-
-        # published <div>
-        published_div = side_contents_divs[side_contents_divs_index]
-        if not global_functions.check_side_content_div("Published", published_div):
-            raise exceptions.FailedToReloadError(content_wrapper_div)
-        published_span, published = published_div.contents
-        self.__start_time, self.__end_time = global_functions.make_start_and_end_time(
-            published
-        )
-        side_contents_divs_index += 1
-
-        # genres <div>
-        genres_div = side_contents_divs[side_contents_divs_index]
-        if not global_functions.check_side_content_div("Genres", genres_div):
-            raise exceptions.FailedToReloadError(content_wrapper_div)
-        for genre_link in genres_div.findAll(name="a"):
-            self.__genres[genre_link.text.strip()] = genre_link["href"]
-        side_contents_divs_index += 1
-
-        # authors <div>
-        authors_div = side_contents_divs[side_contents_divs_index]
-        if not global_functions.check_side_content_div("Authors", authors_div):
-            raise exceptions.FailedToReloadError(content_wrapper_div)
-        for authors_link in authors_div.findAll(name="a"):
-            self.__creators[authors_link.text.strip()] = authors_link["href"]
-        side_contents_divs_index += 1
-
-        side_contents_divs_index += 1
-
-        # score <div>
-        score_div = side_contents_divs[side_contents_divs_index]
-        if not global_functions.check_side_content_div("Score", score_div):
-            raise exceptions.FailedToReloadError(content_wrapper_div)
-        score_span, self_score = score_div.contents[:2]
-        self.__score = float(self_score)
-        side_contents_divs_index += 1
-
-        # rank <div>
-        rank_div = side_contents_divs[side_contents_divs_index]
-        if not global_functions.check_side_content_div("Ranked", rank_div):
-            raise exceptions.FailedToReloadError(content_wrapper_div)
-        rank_span, self_rank = rank_div.contents[:2]
-        self_rank = self_rank.strip()
-        if not self_rank.startswith("#"):
-            raise exceptions.FailedToReloadError(self_rank)
-        self.__rank = int(self_rank[1:])
-        side_contents_divs_index += 1
-
-        # popularity <div>
-        popularity_div = side_contents_divs[side_contents_divs_index]
-        if not global_functions.check_side_content_div("Popularity", popularity_div):
-            raise exceptions.FailedToReloadError(content_wrapper_div)
-        popularity_span, self_popularity = popularity_div.contents[:2]
-        self_popularity = self_popularity.strip()
-        if not self_popularity.startswith("#"):
-            raise exceptions.FailedToReloadError(self_popularity)
-        self.__popularity = int(self_popularity[1:])
+            if label == "English":
+                self.__english = value
+            elif label == "Synonyms":
+                self.__synonyms = value
+            elif label == "Japanese":
+                self.__japanese = value
+            elif label == "Type":
+                self.__type = value
+            elif label == "Volumes":
+                self.__volumes = global_functions.make_counter(value)
+            elif label == "Chapters":
+                self.__chapters = global_functions.make_counter(value)
+            elif label == "Status":
+                self.__status = value
+            elif label == "Published":
+                self.__start_time, self.__end_time = (
+                    global_functions.make_start_and_end_time(value)
+                )
+            elif label in ("Authors", "Serialization"):
+                for a in div.find_all("a"):
+                    self.__creators[a.get_text(strip=True)] = a["href"]
+            elif label in ("Genres", "Genre", "Themes", "Theme", "Demographic"):
+                for a in div.find_all("a"):
+                    self.__genres[a.get_text(strip=True)] = a["href"]
+            elif label == "Score":
+                try:
+                    self.__score = float(value.split()[0])
+                except (ValueError, IndexError):
+                    self.__score = 0.0
+            elif label == "Ranked":
+                rank_str = value.lstrip("#").split()[0]
+                try:
+                    self.__rank = int(rank_str)
+                except ValueError:
+                    self.__rank = 0
+            elif label == "Popularity":
+                pop_str = value.lstrip("#").split()[0]
+                try:
+                    self.__popularity = int(pop_str)
+                except ValueError:
+                    self.__popularity = 0
 
         # Data from main content
         main_content = contents[1]
-        main_content_inner_divs = main_content.findAll(name="div", recursive=False)
-        if len(main_content_inner_divs) != 2:
-            raise exceptions.FailedToReloadError(
-                f"Got len(main_content_inner_divs) == {len(main_content_inner_divs):d}"
-            )
-        main_content_datas = main_content_inner_divs[1].table.tbody.findAll(
-            name="tr", recursive=False
-        )
-
-        synopsis_cell = main_content_datas[0]
-        main_content_other_data = main_content_datas[1]
+        rightside = main_content.find("div", class_="rightside") or main_content
 
         # Getting synopsis
-        synopsis_cell = synopsis_cell.td
-        synopsis_cell_contents = synopsis_cell.contents
-        if synopsis_cell.h2.text.strip() != "Synopsis":
-            raise exceptions.FailedToReloadError(synopsis_cell.h2.text.strip())
-        self.__synopsis = os.linesep.join(
-            [
-                synopsis_cell_content.strip()
-                for synopsis_cell_content in synopsis_cell_contents[1:-1]
-                if isinstance(synopsis_cell_content, bs4.element.NavigableString)
-            ]
-        )
-
-        # Getting other data
-        main_content_other_data = main_content_other_data.td
-        other_data_kids = list(main_content_other_data.children)
-
-        # Getting all the data under 'Related Manga'
-        index = 0
-        index = global_functions.get_next_index(index, other_data_kids)
-        if (
-            other_data_kids[index].name == "h2"
-            and other_data_kids[index].text.strip() == "Related Manga"
-        ):
-            index += 1
-            while other_data_kids[index + 1].name != "br":
-                index = global_functions.make_set(
-                    self.related_str_to_set_dict[other_data_kids[index].strip()],
-                    index,
-                    other_data_kids,
-                )
+        synopsis_p = rightside.find("p", itemprop="description")
+        if synopsis_p:
+            self.__synopsis = synopsis_p.get_text().strip()
         else:
-            index -= 2
-        next_index = global_functions.get_next_index(index, other_data_kids)
+            synopsis_h2 = rightside.find(
+                lambda tag: tag.name == "h2" and "Synopsis" in tag.get_text()
+            )
+            if synopsis_h2 and synopsis_h2.parent:
+                self.__synopsis = synopsis_h2.parent.get_text(strip=True)
+            else:
+                self.__synopsis = ""
 
-        if consts.DEBUG:
-            if next_index - index != 2:
-                raise exceptions.FailedToReloadError(f"{next_index:d} - {index:d}")
-            index = next_index + 1
+        reviews_tag = rightside.find(string="More reviews")
+        if (
+            reviews_tag is not None
+            and reviews_tag.parent
+            and "href" in reviews_tag.parent.attrs
+        ):
+            link_for_reviews = request.urljoin(
+                consts.HOST_NAME, reviews_tag.parent["href"]
+            )
+            self.__parse_reviews(link_for_reviews)
 
-            # Getting all the data under 'Characters & Voice Actors'
-            if other_data_kids[index].name != "h2":
-                raise exceptions.FailedToReloadError(
-                    f"h2 == {other_data_kids[index].name:s}"
-                )
-            if other_data_kids[index].contents[-1] != "Characters":
-                raise exceptions.FailedToReloadError(other_data_kids[index].contents[-1])
-
-        tag_for_reviews = main_content_other_data.find(text="More reviews").parent
-        link_for_reviews = request.urljoin(consts.HOST_NAME, tag_for_reviews["href"])
-        self.__parse_reviews(link_for_reviews)
-
-        tag_for_recommendations = main_content_other_data.find(
-            text="More recommendations"
-        ).parent
-        link_for_recommendations = request.urljoin(
-            consts.HOST_NAME, tag_for_recommendations["href"]
-        )
-        self.__parse_recommendations(link_for_recommendations)
+        recommendations_tag = rightside.find(string="More recommendations")
+        if (
+            recommendations_tag is not None
+            and recommendations_tag.parent
+            and "href" in recommendations_tag.parent.attrs
+        ):
+            link_for_recommendations = request.urljoin(
+                consts.HOST_NAME, recommendations_tag.parent["href"]
+            )
+            self.__parse_recommendations(link_for_recommendations)
 
         self._is_loaded = True
 
     def __parse_reviews(self, link_for_reviews: str):
         from pymal.inner_objects import review
 
-        content_wrapper_div = global_functions.get_content_wrapper_div(
-            link_for_reviews, global_functions.connect
-        )
-        content_div = content_wrapper_div.find(
-            name="div", attrs={"id": "content"}, recursive=False
-        )
-        _, main_cell = content_div.table.tbody.tr.findAll(name="td", recursive=False)
-        _, reviews_data_div = main_cell.findAll(name="div", recursive=False)
-        reviews_data = reviews_data_div.findAll(name="div", recursive=False)[2:-2]
-        self.reviews = frozenset(map(review.Review, reviews_data))
+        try:
+            content_wrapper_div = global_functions.get_content_wrapper_div(
+                link_for_reviews, global_functions.connect
+            )
+            content_div = content_wrapper_div.find(name="div", attrs={"id": "content"})
+            tr = (
+                content_div.table.find("tr")
+                if content_div and content_div.table
+                else None
+            )
+            if not tr:
+                self.reviews = frozenset()
+                return
+            tds = tr.find_all(name="td", recursive=False)
+            if len(tds) < 2:
+                self.reviews = frozenset()
+                return
+            main_cell = tds[1]
+            divs = main_cell.find_all(name="div", recursive=False)
+            if len(divs) < 2:
+                self.reviews = frozenset()
+                return
+            reviews_data_div = divs[1]
+            reviews_data = reviews_data_div.find_all(name="div", recursive=False)[2:-2]
+            self.reviews = frozenset(map(review.Review, reviews_data))
+        except Exception:
+            self.reviews = frozenset()
 
     def __parse_recommendations(self, link_for_recommendations: str):
         from pymal.inner_objects import recommendation
 
-        content_wrapper_div = global_functions.get_content_wrapper_div(
-            link_for_recommendations, global_functions.connect
-        )
-        content_div = content_wrapper_div.find(
-            name="div", attrs={"id": "content"}, recursive=False
-        )
-        _, main_cell = content_div.table.tbody.tr.findAll(name="td", recursive=False)
-        _, recommendations_data_div = main_cell.findAll(name="div", recursive=False)
-        recommendations_data = recommendations_data_div.findAll(
-            name="div", recursive=False
-        )[2:-1]
-        self.recommendations = frozenset(
-            map(recommendation.Recommendation, recommendations_data)
-        )
+        try:
+            content_wrapper_div = global_functions.get_content_wrapper_div(
+                link_for_recommendations, global_functions.connect
+            )
+            content_div = content_wrapper_div.find(name="div", attrs={"id": "content"})
+            tr = (
+                content_div.table.find("tr")
+                if content_div and content_div.table
+                else None
+            )
+            if not tr:
+                self.recommendations = frozenset()
+                return
+            tds = tr.find_all(name="td", recursive=False)
+            if len(tds) < 2:
+                self.recommendations = frozenset()
+                return
+            main_cell = tds[1]
+            divs = main_cell.find_all(name="div", recursive=False)
+            if len(divs) < 2:
+                self.recommendations = frozenset()
+                return
+            recommendations_data_div = divs[1]
+            recommendations_data = recommendations_data_div.find_all(
+                name="div", recursive=False
+            )[2:-1]
+            self.recommendations = frozenset(
+                map(recommendation.Recommendation, recommendations_data)
+            )
+        except Exception:
+            self.recommendations = frozenset()
 
     @property
     def MY_MAL_XML_TEMPLATE(self):
