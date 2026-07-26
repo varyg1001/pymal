@@ -67,6 +67,9 @@ class SearchProvider(metaclass=Singleton):
             res = self.__get_list(search_line, current_index)
         ret.update(res)
 
-        return frozenset(
-            self._SEARCHED_OBJECT(x.split(self._SEARCHED_URL_SUFFIX)[1]) for x in ret
-        )
+        results = set()
+        for x in ret:
+            parts = x.split(self._SEARCHED_URL_SUFFIX)
+            if len(parts) > 1:
+                results.add(self._SEARCHED_OBJECT(parts[1]))
+        return frozenset(results)

@@ -155,7 +155,10 @@ def __get_myanimelist_div(url: str, connection_function) -> bs4.element.Tag:
         time.sleep(consts.RETRY_SLEEP)
         data = connection_function(url)
         html = bs4.BeautifulSoup(data, "lxml").html
-        if html.head.find(name="meta", attrs={"name": "robots"}) is not None:
+        robots = (
+            html.head.find(name="meta", attrs={"name": "robots"}) if html.head else None
+        )
+        if robots and "noindex" in robots.get("content", "").lower():
             got_robot = True
             continue
         div = html.body.find(name="div", attrs={"id": "myanimelist"})
