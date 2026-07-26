@@ -61,10 +61,11 @@ Key runtime dependencies (full list in `pyproject.toml`):
 
 ---
 
-## Known Issues & Endpoint Behavior
+## Search & Endpoint Features
 
-- **Cloudflare / Bot Protection**: Direct scraping requests to `myanimelist.net/anime/<id>` may raise `GotRobotError` if triggered by MAL's Cloudflare `meta[name="robots"]` protection without custom browser headers or session bypass.
-- **Legacy Search Endpoint**: `SearchAnimesProvider` relies on legacy `anime.php?q=...` endpoints which currently return `405 Method Not Allowed` on MyAnimeList.
+- **Search API**: Search providers (`SearchAnimesProvider`, `SearchMangasProvider`) automatically query MyAnimeList's modern `prefix.json` API endpoint (`/search/prefix.json`), falling back gracefully if needed.
+- **Seasons**: Seasonal anime lookups (`Season`, `Seasons`) scrape directly from native MyAnimeList season pages (`/anime/season/<year>/<season>`) and the archive listing (`/anime/season/archive`).
+- **User Lists**: Account anime and manga lists (`AccountAnimes`, `AccountMangas`) utilize MAL's modern JSON list endpoints (`load.json`).
 
 ---
 
@@ -115,11 +116,13 @@ modern Python. v1.0.0 brings it back to life:
 | 3 | Sidebar | Full rewrite from brittle index-based to label-based lookup (`span.dark_text`) |
 | 4 | Title | Fixed `IndexError` — MAL now wraps `<h1>` content in `<strong>` |
 | 5 | Table | Fixed `AttributeError` — MAL removed `<tbody>` from tables |
-| 6 | Search | Added `None` guard on `#content` div |
-| 7 | Build | `setup.py` → `uv_build` + `pyproject.toml` |
-| 8 | Tests | New offline suite with 40 tests; account tests skip without credentials |
-| 9 | Docs | Migrated from Sphinx/RST to MkDocs Material (GitHub Pages) |
-| 10 | Cleanup | Removed `.travis.yml`, `MANIFEST.in`, `upload_new_version.bat`, dead HTML fixtures |
+| 6 | Search | Migrated from legacy `anime.php` to MAL's modern `prefix.json` API |
+| 7 | Seasons | Migrated from dead `malupdater.com` to native MAL `/anime/season` pages |
+| 8 | User Lists | Updated `AccountAnimes` & `AccountMangas` to MAL's `load.json` API |
+| 9 | Build | `setup.py` → `uv_build` + `pyproject.toml` |
+| 10 | Tests | New offline suite with 40 tests; account tests skip without credentials |
+| 11 | Docs | Migrated from Sphinx/RST to MkDocs Material (GitHub Pages) |
+| 12 | Cleanup | Removed `.travis.yml`, `MANIFEST.in`, `upload_new_version.bat`, dead HTML fixtures |
 
 Also fixed latent bugs: `==` used instead of `=` in `my_anime.py` and
 `my_manga.py` meant `download_episodes` and `times_rewatched` were never

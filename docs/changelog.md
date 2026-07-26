@@ -13,13 +13,11 @@
 - **Sidebar parsing** (`anime.py`): rewrote from brittle index-based access to label-based lookup via `span.dark_text` — fixes all fields broken by MAL's layout update
 - **Title extraction** (`anime.py`): fixed `IndexError` caused by MAL wrapping the title in a `<strong>` tag inside `<h1>`
 - **Table parsing** (`anime.py`): fixed `AttributeError` caused by MAL removing `<tbody>` from tables
-- **Search provider** (`searches/search_provider.py`): added `None` guard on `#content` div — fixes `AttributeError` when MAL redirects unauthenticated requests
+- **Search API** (`searches/search_provider.py`): migrated from legacy `anime.php?q=...` endpoints to MAL's modern `prefix.json` API with fallback protection
+- **Season Scraping** (`seasons.py`, `inner_objects/season.py`): migrated from dead `malupdater.com` third-party server to native MyAnimeList season (`/anime/season/<year>/<season>`) and archive listing pages
+- **User Account Lists** (`account_animes.py`, `account_mangas.py`): updated to MAL's modern JSON list endpoints (`load.json`)
 - **`ReloadedSet`**: fixed `collections.Set` → `collections.abc.Set` (removed in Python 3.10)
 - **`HOST_NAME`**: updated `http://` → `https://` (MAL enforces HTTPS)
-
-### Known Issues & Endpoint Behavior
-- **Cloudflare / Bot Protection**: Direct scraping requests to `myanimelist.net/anime/<id>` may raise `GotRobotError` if triggered by MAL's Cloudflare `meta[name="robots"]` protection without custom browser headers or session bypass.
-- **Legacy Search Endpoint**: `SearchAnimesProvider` (and other search providers) rely on legacy `anime.php?q=...` endpoints, which currently return `405 Method Not Allowed` on MyAnimeList.
 
 ### Infrastructure
 - Migrated build system from `setup.py` to `uv_build` (`pyproject.toml`)
