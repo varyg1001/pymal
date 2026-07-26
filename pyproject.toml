@@ -5,7 +5,7 @@ build-backend = "uv_build"
 [project]
 name = "pymal"
 version = "1.0.0"
-requires-python = "<3.15,>=3.11"
+requires-python = "<3.15,>=3.10"
 description = "A python api for the website MyAnimeList (or MAL)."
 authors = []
 dependencies = [

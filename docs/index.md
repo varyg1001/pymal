@@ -42,7 +42,7 @@ uv sync
 
 ## Requirements
 
-- Python 3.11–3.14
+- Python 3.10–3.14
 - [`niquests`](https://pypi.org/project/niquests/) — HTTP client
 - [`lxml`](https://pypi.org/project/lxml/) — HTML parser
 - [`beautifulsoup4`](https://pypi.org/project/beautifulsoup4/)

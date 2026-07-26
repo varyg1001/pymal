@@ -48,7 +48,7 @@ pip install -e .
 
 ## Requirements
 
-- Python `>=3.11, <3.15`
+- Python `>=3.10, <3.15`
 - [`uv`](https://github.com/astral-sh/uv) (recommended) or pip
 
 Key runtime dependencies (full list in `pyproject.toml`):
