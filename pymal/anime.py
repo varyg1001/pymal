@@ -295,7 +295,6 @@ class Anime(metaclass=singleton_factory.SingletonFactory):
         """
         :exception exceptions.FailedToReloadError: when failed.
         """
-        import os
 
         from pymal import exceptions
 
@@ -309,9 +308,7 @@ class Anime(metaclass=singleton_factory.SingletonFactory):
         self.__title = (h1.find("strong") or h1).get_text(strip=True)
 
         # Getting content <div>
-        content_div = content_wrapper_div.find(
-            name="div", attrs={"id": "content"}, recursive=False
-        )
+        content_div = content_wrapper_div.find(name="div", attrs={"id": "content"})
 
         if content_div is None:
             raise exceptions.FailedToReloadError(content_wrapper_div)
@@ -418,77 +415,38 @@ class Anime(metaclass=singleton_factory.SingletonFactory):
 
         # Data from main content
         main_content = contents[1]
-        main_content_inner_divs = main_content.find_all(name="div", recursive=False)
-        if len(main_content_inner_divs) != 2:
-            raise exceptions.FailedToReloadError(
-                f"Got len(main_content_inner_divs) == {len(main_content_inner_divs):d}"
-            )
-        main_content_datas = (
-            main_content_inner_divs[1].table.find("tbody")
-            or main_content_inner_divs[1].table
-        )
-        main_content_datas = main_content_datas.find_all(name="tr", recursive=False)
+        rightside = main_content.find("div", class_="rightside") or main_content
 
-        synopsis_cell = main_content_datas[0]
-        main_content_other_data = main_content_datas[1]
-
-        # Getting synopsis
-        synopsis_cell = synopsis_cell.td
-        synopsis_cell_contents = synopsis_cell.contents
-        if synopsis_cell.h2.text.strip() != "Synopsis":
-            raise exceptions.FailedToReloadError(synopsis_cell.h2.text.strip())
-        self.__synopsis = os.linesep.join(
-            [
-                synopsis_cell_content.strip()
-                for synopsis_cell_content in synopsis_cell_contents[1:-1]
-                if isinstance(synopsis_cell_content, bs4.element.NavigableString)
-            ]
-        )
-
-        # Getting other data
-        main_content_other_data = main_content_other_data.td
-        other_data_kids = list(main_content_other_data.children)
-
-        # Getting all the data under 'Related Anime'
-        index = 0
-        index = global_functions.get_next_index(index, other_data_kids)
-        if (
-            other_data_kids[index].name == "h2"
-            and other_data_kids[index].text.strip() == "Related Anime"
-        ):
-            index += 1
-            while other_data_kids[index + 1].name != "br":
-                index = global_functions.make_set(
-                    self.related_str_to_set_dict[other_data_kids[index].strip()],
-                    index,
-                    other_data_kids,
-                )
+        # Getting synopsis from modern layout <p itemprop="description"> or fallback h2
+        synopsis_p = rightside.find("p", itemprop="description")
+        if synopsis_p:
+            self.__synopsis = synopsis_p.get_text().strip()
         else:
-            index -= 2
-        next_index = global_functions.get_next_index(index, other_data_kids)
+            synopsis_h2 = rightside.find(
+                lambda tag: tag.name == "h2" and "Synopsis" in tag.get_text()
+            )
+            if synopsis_h2 and synopsis_h2.parent:
+                self.__synopsis = synopsis_h2.parent.get_text(strip=True)
+            else:
+                self.__synopsis = ""
 
-        if consts.DEBUG:
-            if next_index - index != 2:
-                raise exceptions.FailedToReloadError(f"{next_index:d} - {index:d}")
-            index = next_index + 1
-
-            # Getting all the data under 'Characters & Voice Actors'
-            if other_data_kids[index].name != "h2":
-                raise exceptions.FailedToReloadError(
-                    f"h2 == {other_data_kids[index].name:s}"
-                )
-            if other_data_kids[index].contents[-1] != "Characters & Voice Actors":
-                raise exceptions.FailedToReloadError(other_data_kids[index].contents[-1])
-
-        reviews_tag = main_content_other_data.find(string="More reviews")
-        if reviews_tag is not None:
+        reviews_tag = rightside.find(string="More reviews")
+        if (
+            reviews_tag is not None
+            and reviews_tag.parent
+            and "href" in reviews_tag.parent.attrs
+        ):
             link_for_reviews = request.urljoin(
                 consts.HOST_NAME, reviews_tag.parent["href"]
             )
             self.__parse_reviews(link_for_reviews)
 
-        recommendations_tag = main_content_other_data.find(string="More recommendations")
-        if recommendations_tag is not None:
+        recommendations_tag = rightside.find(string="More recommendations")
+        if (
+            recommendations_tag is not None
+            and recommendations_tag.parent
+            and "href" in recommendations_tag.parent.attrs
+        ):
             link_for_recommendations = request.urljoin(
                 consts.HOST_NAME, recommendations_tag.parent["href"]
             )
