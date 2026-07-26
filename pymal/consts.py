@@ -5,7 +5,7 @@ __contact__ = "Name Of Current Guardian of this file <email@address>"
 
 USER_AGENT = "api-indiv-0829BA2B33942A4A5E6338FE05EFB8A1"
 
-HOST_NAME = "https://myanimelist.net"
+HOST_NAME = "http://myanimelist.net"
 
 DEBUG = False
 RETRY_NUMBER = 4
