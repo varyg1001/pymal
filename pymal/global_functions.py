@@ -173,9 +173,7 @@ def get_content_wrapper_div(url: str, connection_function) -> bs4.element.Tag:
     myanimelist_div = __get_myanimelist_div(url, connection_function)
 
     # Getting content wrapper <div>
-    content_wrapper_div = myanimelist_div.find(
-        name="div", attrs={"id": "contentWrapper"}, recursive=False
-    )
+    content_wrapper_div = myanimelist_div.find(name="div", attrs={"id": "contentWrapper"})
     if content_wrapper_div is None:
         raise exceptions.FailedToParseError(myanimelist_div)
     return content_wrapper_div

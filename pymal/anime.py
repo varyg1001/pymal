@@ -325,10 +325,11 @@ class Anime(metaclass=singleton_factory.SingletonFactory):
         leftside = side_content.find("div", class_="leftside") or side_content
 
         # Getting anime image url <img>
-        img_link = leftside.find(name="a")
-        if img_link is None:
-            raise exceptions.FailedToReloadError(content_wrapper_div)
-        self.__image_url = img_link.img["src"] if img_link.img else ""
+        img = leftside.find(name="img")
+        if img is None:
+            self.__image_url = ""
+        else:
+            self.__image_url = img.get("data-src") or img.get("src") or ""
 
         # Reset all sidebar fields before label-based lookup
         self.__english = ""
@@ -457,34 +458,68 @@ class Anime(metaclass=singleton_factory.SingletonFactory):
     def __parse_reviews(self, link_for_reviews: str):
         from pymal.inner_objects import review
 
-        content_wrapper_div = global_functions.get_content_wrapper_div(
-            link_for_reviews, global_functions.connect
-        )
-        content_div = content_wrapper_div.find(
-            name="div", attrs={"id": "content"}, recursive=False
-        )
-        _, main_cell = content_div.table.tbody.tr.findAll(name="td", recursive=False)
-        _, reviews_data_div = main_cell.findAll(name="div", recursive=False)
-        reviews_data = reviews_data_div.findAll(name="div", recursive=False)[2:-2]
-        self.reviews = frozenset(map(review.Review, reviews_data))
+        try:
+            content_wrapper_div = global_functions.get_content_wrapper_div(
+                link_for_reviews, global_functions.connect
+            )
+            content_div = content_wrapper_div.find(name="div", attrs={"id": "content"})
+            tr = (
+                content_div.table.find("tr")
+                if content_div and content_div.table
+                else None
+            )
+            if not tr:
+                self.reviews = frozenset()
+                return
+            tds = tr.find_all(name="td", recursive=False)
+            if len(tds) < 2:
+                self.reviews = frozenset()
+                return
+            main_cell = tds[1]
+            divs = main_cell.find_all(name="div", recursive=False)
+            if len(divs) < 2:
+                self.reviews = frozenset()
+                return
+            reviews_data_div = divs[1]
+            reviews_data = reviews_data_div.find_all(name="div", recursive=False)[2:-2]
+            self.reviews = frozenset(map(review.Review, reviews_data))
+        except Exception:
+            self.reviews = frozenset()
 
     def __parse_recommendations(self, link_for_recommendations: str):
         from pymal.inner_objects import recommendation
 
-        content_wrapper_div = global_functions.get_content_wrapper_div(
-            link_for_recommendations, global_functions.connect
-        )
-        content_div = content_wrapper_div.find(
-            name="div", attrs={"id": "content"}, recursive=False
-        )
-        _, main_cell = content_div.table.tbody.tr.findAll(name="td", recursive=False)
-        _, recommendations_data_div = main_cell.findAll(name="div", recursive=False)
-        recommendations_data = recommendations_data_div.findAll(
-            name="div", recursive=False
-        )[2:-1]
-        self.recommendations = frozenset(
-            map(recommendation.Recommendation, recommendations_data)
-        )
+        try:
+            content_wrapper_div = global_functions.get_content_wrapper_div(
+                link_for_recommendations, global_functions.connect
+            )
+            content_div = content_wrapper_div.find(name="div", attrs={"id": "content"})
+            tr = (
+                content_div.table.find("tr")
+                if content_div and content_div.table
+                else None
+            )
+            if not tr:
+                self.recommendations = frozenset()
+                return
+            tds = tr.find_all(name="td", recursive=False)
+            if len(tds) < 2:
+                self.recommendations = frozenset()
+                return
+            main_cell = tds[1]
+            divs = main_cell.find_all(name="div", recursive=False)
+            if len(divs) < 2:
+                self.recommendations = frozenset()
+                return
+            recommendations_data_div = divs[1]
+            recommendations_data = recommendations_data_div.find_all(
+                name="div", recursive=False
+            )[2:-1]
+            self.recommendations = frozenset(
+                map(recommendation.Recommendation, recommendations_data)
+            )
+        except Exception:
+            self.recommendations = frozenset()
 
     @property
     def MY_MAL_XML_TEMPLATE(self) -> str:
