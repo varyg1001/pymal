@@ -3,7 +3,7 @@ __copyright__ = "(c) 2014, pymal"
 __license__ = "BSD License"
 __contact__ = "Name Of Current Guardian of this file <email@address>"
 
-from singleton3 import Singleton
+import singleton_factory
 
 from pymal import decorators
 
@@ -11,7 +11,7 @@ from pymal import decorators
 __all__ = ["Seasons"]
 
 
-class Seasons(metaclass=Singleton):
+class Seasons(metaclass=singleton_factory.SingletonFactory):
     """
     Lazy making of Season from online db.
 
