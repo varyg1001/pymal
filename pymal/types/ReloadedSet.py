@@ -3,24 +3,25 @@ __copyright__ = "(c) 2014, pymal"
 __license__ = "BSD License"
 __contact__ = "Name Of Current Guardian of this file <email@address>"
 
-import collections
+import collections.abc
 
 import singleton_factory
 
 
-class ReloadedSet(collections.Set):
+class ReloadedSet(collections.abc.Set):
     """
     A reloaded set - like frozenset but can fetch new data in the function reload.
     To inheritance you need to make:
      - _values
      - reload
     """
+
     @property
     def _values(self):
-        raise NotImplemented()
+        raise NotImplementedError()
 
     def reload(self):
-        raise NotImplemented()
+        raise NotImplementedError()
 
     def __contains__(self, item):
         return item in list(self._values)
@@ -48,14 +49,16 @@ class ReloadedSet(collections.Set):
 
     def intersection(self, *others) -> frozenset:
         other_lists = map(list, list(others) + [list(self)])
+
         def in_all(x):
-            return all(map(lambda other_list: x in other_list, other_lists))
+            return all(x in lst for lst in other_lists)
 
         import itertools
+
         other_union_lists = itertools.chain(other_lists)
         items_in_all = filter(in_all, other_union_lists)
 
-        res = list()
+        res = []
 
         for item in items_in_all:
             if item not in res:
@@ -68,6 +71,7 @@ class ReloadedSet(collections.Set):
 
     def difference(self, *others) -> frozenset:
         import itertools
+
         other_lists = map(list, others)
         other_union_lists = itertools.chain(other_lists)
         return frozenset(filter(lambda x: x not in other_union_lists, self))
@@ -88,10 +92,13 @@ class ReloadedSet(collections.Set):
         return self.symmetric_difference(other)
 
 
-class ReloadedSetSingletonFactoryType(type(ReloadedSet), singleton_factory.SingletonFactory):
+class ReloadedSetSingletonFactoryType(
+    type(ReloadedSet), singleton_factory.SingletonFactory
+):
     """
     A singleton factory ReloadedSet type.
     """
+
     pass
 
 
@@ -99,4 +106,5 @@ class ReloadedSetSingletonFactory(ReloadedSet, metaclass=ReloadedSetSingletonFac
     """
     A singleton factory ReloadedSet.
     """
+
     pass

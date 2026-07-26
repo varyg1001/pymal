@@ -5,30 +5,26 @@ __contact__ = "Name Of Current Guardian of this file <email@address>"
 
 import singleton_factory
 
-from pymal import consts
-from pymal import decorators
-
-__all__ = ['Season']
+from pymal import consts, decorators
 
 
-class Season(object, metaclass=singleton_factory.SingletonFactory):
+__all__ = ["Season"]
+
+
+class Season(metaclass=singleton_factory.SingletonFactory):
     """
     Lazy load of season data.
-    
+
     Attributes:
         animes - a frozenset of animes.
         year - the season year.
         season_name - The season name. Can be 'Winter', 'Spring', 'Summer' or 'Fall'.
     """
-    __all__ = ['animes', 'reload']
+
+    __all__ = ["animes", "reload"]
 
     __SEASON_URL = "http://malupdater.com/MalUpdater/Seasons/{0:d}_{1:s}.xml"
-    __SEAONS_NAME_TO_START_MONTH = {
-        'Winter': 1,
-        'Spring': 4,
-        'Summer': 7,
-        'Fall': 10
-    }
+    __SEAONS_NAME_TO_START_MONTH = {"Winter": 1, "Spring": 4, "Summer": 7, "Fall": 10}
 
     def __init__(self, season_name: str, year: int or str):
         """
@@ -38,6 +34,7 @@ class Season(object, metaclass=singleton_factory.SingletonFactory):
         :type year: int or str
         """
         import time
+
         from pymal import exceptions
 
         self.year = int(year)
@@ -50,8 +47,8 @@ class Season(object, metaclass=singleton_factory.SingletonFactory):
         self.__animes = frozenset()
 
         month = str(self.__SEAONS_NAME_TO_START_MONTH[self.season_name])
-        start_time_string = str(year) + ' ' + month
-        self.start_time = time.strptime(start_time_string, '%Y %m')
+        start_time_string = str(year) + " " + month
+        self.start_time = time.strptime(start_time_string, "%Y %m")
 
     @property
     @decorators.load
@@ -66,19 +63,23 @@ class Season(object, metaclass=singleton_factory.SingletonFactory):
         """
         fetching data.
         """
-        import requests
         import bs4
+        import niquests
 
         from pymal import anime
 
-        sock = requests.get(self.url)
+        sock = niquests.get(self.url)
         xml = bs4.BeautifulSoup(sock.text)
-        animes_xml = frozenset(xml.body.findAll(name='anime', recursive=False))
-        animes_xml_with_id = frozenset(filter(lambda x: x.malid.text.isdigit(), animes_xml))
-        if consts.DEBUG and 0 != len(animes_xml - animes_xml_with_id):
-            print("animes with no id:", animes_xml - animes_xml_with_id)
-        animes_ids = map(lambda x: int(x.malid.text), animes_xml_with_id)
-        self.__animes = frozenset(map(lambda x: anime.Anime(x), animes_ids))
+        animes_xml = frozenset(xml.body.findAll(name="anime", recursive=False))
+        animes_xml_with_id = frozenset(
+            filter(lambda x: x.malid.text.isdigit(), animes_xml)
+        )
+        if consts.DEBUG and len(animes_xml - animes_xml_with_id) != 0:
+            import sys
+
+            print("animes with no id:", animes_xml - animes_xml_with_id, file=sys.stderr)  # noqa: T201
+        animes_ids = (int(x.malid.text) for x in animes_xml_with_id)
+        self.__animes = frozenset(anime.Anime(x) for x in animes_ids)
 
     def __iter__(self):
         return iter(self.animes)
@@ -95,5 +96,4 @@ class Season(object, metaclass=singleton_factory.SingletonFactory):
         return int(hash_md5.hexdigest(), 16)
 
     def __repr__(self):
-        return "<{0:s} {1:s} {2:d}>".format(self.__class__.__name__,
-                                            self.season_name, self.year)
+        return f"<{self.__class__.__name__:s} {self.season_name:s} {self.year:d}>"

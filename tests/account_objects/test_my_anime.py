@@ -1,16 +1,12 @@
-import unittest
 import time
+import unittest
 from xml.etree import ElementTree
 
-from pymal import account
-from pymal import anime
-from pymal import consts
-
-from tests.constants_for_testing import ACCOUNT_TEST_USERNAME, ACCOUNT_TEST_PASSWORD
+from pymal import account, anime, consts
+from tests.constants_for_testing import ACCOUNT_TEST_PASSWORD, ACCOUNT_TEST_USERNAME
 
 
 class ReloadTestCase(unittest.TestCase):
-
     @classmethod
     def setUpClass(cls):
         cls.account = account.Account(ACCOUNT_TEST_USERNAME, ACCOUNT_TEST_PASSWORD)
@@ -85,7 +81,6 @@ class ReloadTestCase(unittest.TestCase):
 
 
 class NoReloadTestCase(unittest.TestCase):
-
     @classmethod
     def setUpClass(cls):
         cls.account = account.Account(ACCOUNT_TEST_USERNAME, ACCOUNT_TEST_PASSWORD)
@@ -138,5 +133,5 @@ def main():
     unittest.main()
 
 
-if '__main__' == __name__:
+if __name__ == "__main__":
     main()

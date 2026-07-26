@@ -5,28 +5,28 @@ __contact__ = "Name Of Current Guardian of this file <email@address>"
 
 from urllib import request
 
-import requests
+import niquests
 import singleton_factory
 
 from pymal import global_functions
-from pymal.decorators import load
 from pymal.consts import HOST_NAME
+from pymal.decorators import load
 
-__all__ = ['Account']
+
+__all__ = ["Account"]
 
 
-class Account(object, metaclass=singleton_factory.SingletonFactory):
+class Account(metaclass=singleton_factory.SingletonFactory):
     """
     Object that keeps all the account data in MAL.
     """
 
-    __AUTH_CHECKER_URL =\
-        request.urljoin(HOST_NAME, r'api/account/verify_credentials.xml')
+    __AUTH_CHECKER_URL = request.urljoin(HOST_NAME, r"api/account/verify_credentials.xml")
 
-    __MY_LOGIN_URL = request.urljoin(HOST_NAME, 'login.php')
-    __DATA_FORM = 'user_name={0:s}&password={1:s}&cookie=1&sublogin=Login&submit=1'
+    __MY_LOGIN_URL = request.urljoin(HOST_NAME, "login.php")
+    __DATA_FORM = "user_name={0:s}&password={1:s}&cookie=1&sublogin=Login&submit=1"
 
-    def __init__(self, username: str, password: str or None=None):
+    def __init__(self, username: str, password: str | None = None):
         """
         :param username: The account username.
         :type username: str
@@ -41,7 +41,7 @@ class Account(object, metaclass=singleton_factory.SingletonFactory):
         self.__user_id = None
         self.__auth_object = None
 
-        self._main_profile_url = request.urljoin(HOST_NAME, 'profile/{0:s}'.format(self.username))
+        self._main_profile_url = request.urljoin(HOST_NAME, f"profile/{self.username:s}")
 
         self.__animes = account_animes.AccountAnimes(self)
         self.__mangas = account_mangas.AccountMangas(self)
@@ -75,8 +75,8 @@ class Account(object, metaclass=singleton_factory.SingletonFactory):
 
             ret = self.connect(self._main_profile_url)
             html = bs4.BeautifulSoup(ret)
-            bla = html.find(name='input', attrs={'name': 'profileMemId'})
-            self.__user_id = int(bla['value'])
+            bla = html.find(name="input", attrs={"name": "profileMemId"})
+            self.__user_id = int(bla["value"])
         return self.__user_id
 
     @property
@@ -107,7 +107,7 @@ class Account(object, metaclass=singleton_factory.SingletonFactory):
             self.__friends = account_friends.AccountFriends(self)
         return self.__friends
 
-    def search(self, search_line: str, is_anime: bool=True) -> map:
+    def search(self, search_line: str, is_anime: bool = True) -> map:
         """
         Searching like regular search but switching all the object in "my" lists to the "my" objects.
 
@@ -132,10 +132,8 @@ class Account(object, metaclass=singleton_factory.SingletonFactory):
                 return result
             # if account_object_list was set:
             #     return account_object_list.intersection([result]).pop()
-            return list(filter(
-                lambda x: x == result,
-                account_object_list
-            ))[0]
+            return list(filter(lambda x: x == result, account_object_list))[0]
+
         return map(get_object, results)
 
     def change_password(self, password: str) -> bool:
@@ -149,46 +147,51 @@ class Account(object, metaclass=singleton_factory.SingletonFactory):
         :exception exceptions.FailedToParseError: when failed
         """
         from xml.etree import ElementTree
-        from requests.auth import HTTPBasicAuth
+
+        from niquests.auth import HTTPBasicAuth
+
         from pymal import exceptions
 
         self.__auth_object = HTTPBasicAuth(self.username, password)
         data = self.auth_connect(self.__AUTH_CHECKER_URL)
-        if data == 'Invalid credentials':
+        if data == "Invalid credentials":
             self.__auth_object = None
             self.__password = None
             return False
         xml_user = ElementTree.fromstring(data)
 
-        if 'user' != xml_user.tag:
-            raise exceptions.FailedToParseError('user == {0:s}'.format(xml_user.tag))
-        l = list(xml_user)
-        xml_username = l[1]
-        if 'username' != xml_username.tag:
-            raise exceptions.FailedToParseError('username == {0:s}'.format(xml_username.tag))
+        if xml_user.tag != "user":
+            raise exceptions.FailedToParseError(f"user == {xml_user.tag:s}")
+        xml_children = list(xml_user)
+        xml_username = xml_children[1]
+        if xml_username.tag != "username":
+            raise exceptions.FailedToParseError(f"username == {xml_username.tag:s}")
         if self.username != xml_username.text.strip():
-            raise exceptions.FailedToParseError('username = {0:s}'.format(xml_username.text.strip()))
+            raise exceptions.FailedToParseError(
+                f"username = {xml_username.text.strip():s}"
+            )
 
-        xml_id = l[0]
-        if 'id' != xml_id.tag:
-            raise exceptions.FailedToParseError('id == {0:s}'.format(xml_id.tag))
+        xml_id = xml_children[0]
+        if xml_id.tag != "id":
+            raise exceptions.FailedToParseError(f"id == {xml_id.tag:s}")
         if self.user_id != int(xml_id.text):
             raise exceptions.FailedToParseError()
 
         self.__password = password
 
-        data_form = self.__DATA_FORM.format(self.username, password).encode('utf-8')
+        data_form = self.__DATA_FORM.format(self.username, password).encode("utf-8")
         headers = {
-            'content-type': 'application/x-www-form-urlencoded',
-            'name': 'loginForm',
+            "content-type": "application/x-www-form-urlencoded",
+            "name": "loginForm",
         }
 
         self.auth_connect(self.__MY_LOGIN_URL, data=data_form, headers=headers)
 
         return True
 
-    def auth_connect(self, url: str, data: str or None=None,
-                     headers: dict or None=None) -> str:
+    def auth_connect(
+        self, url: str, data: str or None = None, headers: dict or None = None
+    ) -> str:
         """
         :param url: The url to get.
         :type url: str
@@ -203,8 +206,13 @@ class Account(object, metaclass=singleton_factory.SingletonFactory):
 
         if not self.is_auth:
             raise exceptions.UnauthenticatedAccountError(self.username)
-        return global_functions._connect(url, data=data, headers=headers,
-                                         auth=self.__auth_object, session=self.__session).text.strip()
+        return global_functions._connect(
+            url,
+            data=data,
+            headers=headers,
+            auth=self.__auth_object,
+            session=self.__session,
+        ).text.strip()
 
     @property
     @load
@@ -224,7 +232,7 @@ class Account(object, metaclass=singleton_factory.SingletonFactory):
 
         from PIL import Image
 
-        sock = requests.get(self.image_url)
+        sock = niquests.get(self.image_url)
         data = io.BytesIO(sock.content)
         return Image.open(data)
 
@@ -232,9 +240,13 @@ class Account(object, metaclass=singleton_factory.SingletonFactory):
         """
         reloading account image (all the other things are already lazy load!
         """
-        div = global_functions.get_content_wrapper_div(self._main_profile_url, self.connect)
-        profile_leftcell = div.table.tbody.tr.find(name="td", attrs={"class": "profile_leftcell"}, recursive=False)
-        self.__image_url = profile_leftcell.div.img['src']
+        div = global_functions.get_content_wrapper_div(
+            self._main_profile_url, self.connect
+        )
+        profile_leftcell = div.table.tbody.tr.find(
+            name="td", attrs={"class": "profile_leftcell"}, recursive=False
+        )
+        self.__image_url = profile_leftcell.div.img["src"]
 
     @property
     def is_auth(self) -> bool:
@@ -245,7 +257,7 @@ class Account(object, metaclass=singleton_factory.SingletonFactory):
         return self.__auth_object is not None
 
     def __repr__(self):
-        return "<Account username: {0:s}>".format(self.username)
+        return f"<Account username: {self.username:s}>"
 
     def __hash__(self):
         import hashlib

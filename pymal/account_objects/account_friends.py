@@ -4,10 +4,9 @@ __license__ = "BSD License"
 __contact__ = "Name Of Current Guardian of this file <email@address>"
 
 
-from pymal import global_functions
-from pymal.types import ReloadedSet
+from pymal import exceptions, global_functions
 from pymal.decorators import load
-from pymal import exceptions
+from pymal.types import ReloadedSet
 
 
 class AccountFriends(ReloadedSet.ReloadedSetSingletonFactory):
@@ -23,7 +22,7 @@ class AccountFriends(ReloadedSet.ReloadedSetSingletonFactory):
         :type account: :class:`account.Account`
         """
         self.account = account
-        self.__url = account._main_profile_url + '/friends'
+        self.__url = account._main_profile_url + "/friends"
 
         self.__friends = frozenset()
 
@@ -42,7 +41,9 @@ class AccountFriends(ReloadedSet.ReloadedSetSingletonFactory):
         """
         :exception FailedToParseError
         """
-        div_wrapper = global_functions.get_content_wrapper_div(self.__url, self.account.connect)
+        div_wrapper = global_functions.get_content_wrapper_div(
+            self.__url, self.account.connect
+        )
         if div_wrapper is None:
             raise exceptions.FailedToParseError()
 
@@ -65,18 +66,18 @@ class AccountFriends(ReloadedSet.ReloadedSetSingletonFactory):
         """
         from pymal import account
 
-        div_pic = div_friend.find(name="div", attrs={'class': 'picSurround'})
+        div_pic = div_friend.find(name="div", attrs={"class": "picSurround"})
         if div_pic is None:
             raise exceptions.FailedToParseError(div_friend)
 
-        splited_friend_url = div_pic.a['href'].split('/profile/', 1)
-        if 2 != len(splited_friend_url):
+        splited_friend_url = div_pic.a["href"].split("/profile/", 1)
+        if len(splited_friend_url) != 2:
             raise exceptions.FailedToParseError()
 
         return account.Account(splited_friend_url[1])
 
     def __repr__(self):
-        return "<User friends' number is {0:d}>".format(len(self))
+        return f"<User friends' number is {len(self):d}>"
 
     def __hash__(self):
         import hashlib

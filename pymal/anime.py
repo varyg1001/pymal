@@ -5,18 +5,17 @@ __contact__ = "Name Of Current Guardian of this file <email@address>"
 
 from urllib import request
 
-import requests
 import bs4
+import niquests
 import singleton_factory
 
-from pymal import decorators
-from pymal import consts
-from pymal import global_functions
-
-__all__ = ['Anime']
+from pymal import consts, decorators, global_functions
 
 
-class Anime(object, metaclass=singleton_factory.SingletonFactory):
+__all__ = ["Anime"]
+
+
+class Anime(metaclass=singleton_factory.SingletonFactory):
     """
     Object that keeps all the anime data in MAL.
 
@@ -54,8 +53,7 @@ class Anime(object, metaclass=singleton_factory.SingletonFactory):
     """
 
     __GLOBAL_MAL_URL = request.urljoin(consts.HOST_NAME, "anime/{0:d}")
-    __MY_MAL_ADD_URL = request.urljoin(
-        consts.HOST_NAME, 'api/animelist/add/{0:d}.xml')
+    __MY_MAL_ADD_URL = request.urljoin(consts.HOST_NAME, "api/animelist/add/{0:d}.xml")
 
     def __init__(self, mal_id: int):
         """
@@ -69,28 +67,28 @@ class Anime(object, metaclass=singleton_factory.SingletonFactory):
 
         # Getting staff from html
         # staff from side content
-        self.__title = ''
-        self.__image_url = ''
-        self.__english = ''
-        self.__synonyms = ''
-        self.__japanese = ''
-        self.__type = ''
+        self.__title = ""
+        self.__image_url = ""
+        self.__english = ""
+        self.__synonyms = ""
+        self.__japanese = ""
+        self.__type = ""
         self.__status = 0
         self.__start_time = 0
         self.__end_time = 0
-        self.__creators = dict()
-        self.__genres = dict()
+        self.__creators = {}
+        self.__genres = {}
         self.__duration = 0
         self.__score = 0.0
         self.__rank = 0
         self.__popularity = 0
 
-        self.__rating = ''
+        self.__rating = ""
         self.__episodes = 0
 
         # staff from main content
         # staff from row 1
-        self.__synopsis = ''
+        self.__synopsis = ""
 
         # staff from row 2
         self.__adaptations = set()
@@ -107,18 +105,18 @@ class Anime(object, metaclass=singleton_factory.SingletonFactory):
         self.__full_stories = set()
 
         self.related_str_to_set_dict = {
-            'Adaptation:': self.__adaptations,
-            'Character:': self.__characters,
-            'Sequel:': self.__sequels,
-            'Prequel:': self.__prequels,
-            'Spin-off:': self.__spin_offs,
-            'Alternative version:': self.__alternative_versions,
-            'Side story:': self.__side_stories,
-            'Summary:': self.__summaries,
-            'Other:': self.__others,
-            'Parent story:': self.__parent_stories,
-            'Alternative setting:': self.__alternative_settings,
-            'Full story:': self.__full_stories,
+            "Adaptation:": self.__adaptations,
+            "Character:": self.__characters,
+            "Sequel:": self.__sequels,
+            "Prequel:": self.__prequels,
+            "Spin-off:": self.__spin_offs,
+            "Alternative version:": self.__alternative_versions,
+            "Side story:": self.__side_stories,
+            "Summary:": self.__summaries,
+            "Other:": self.__others,
+            "Parent story:": self.__parent_stories,
+            "Alternative setting:": self.__alternative_settings,
+            "Full story:": self.__full_stories,
         }
 
     @property
@@ -148,7 +146,7 @@ class Anime(object, metaclass=singleton_factory.SingletonFactory):
 
         from PIL import Image
 
-        sock = requests.get(self.image_url)
+        sock = niquests.get(self.image_url)
         data = io.BytesIO(sock.content)
         return Image.open(data)
 
@@ -194,7 +192,7 @@ class Anime(object, metaclass=singleton_factory.SingletonFactory):
 
     @property
     @decorators.load
-    def genres(self) ->dict:
+    def genres(self) -> dict:
         return self.__genres
 
     @property
@@ -298,181 +296,138 @@ class Anime(object, metaclass=singleton_factory.SingletonFactory):
         :exception exceptions.FailedToReloadError: when failed.
         """
         import os
+
         from pymal import exceptions
 
         # Getting content wrapper <div>
-        content_wrapper_div = global_functions.get_content_wrapper_div(self.__mal_url, global_functions.connect)
+        content_wrapper_div = global_functions.get_content_wrapper_div(
+            self.__mal_url, global_functions.connect
+        )
 
-        # Getting title <div>
-        self.__title = content_wrapper_div.h1.contents[1].strip()
+        # Getting title
+        h1 = content_wrapper_div.h1
+        self.__title = (h1.find("strong") or h1).get_text(strip=True)
 
         # Getting content <div>
         content_div = content_wrapper_div.find(
-            name="div", attrs={"id": "content"}, recursive=False)
+            name="div", attrs={"id": "content"}, recursive=False
+        )
 
         if content_div is None:
             raise exceptions.FailedToReloadError(content_wrapper_div)
 
         content_table = content_div.table
 
-        contents = content_table.tbody.tr.findAll(name="td", recursive=False)
+        tr = content_table.find(name="tr")
+        contents = tr.find_all(name="td", recursive=False)
 
         # Data from side content
         side_content = contents[0]
-        side_contents_divs = side_content.findAll(name="div", recursive=False)
+
+        # Step into .leftside wrapper (new MAL layout)
+        leftside = side_content.find("div", class_="leftside") or side_content
 
         # Getting anime image url <img>
-        img_div = side_contents_divs[0]
-        img_link = img_div.find(name="a")
+        img_link = leftside.find(name="a")
         if img_link is None:
             raise exceptions.FailedToReloadError(content_wrapper_div)
-        self.__image_url = img_link.img['src']
+        self.__image_url = img_link.img["src"] if img_link.img else ""
 
-        side_contents_divs_index = 5
-
-        # english <div>
-        english_div = side_contents_divs[side_contents_divs_index]
-        if global_functions.check_side_content_div('English', english_div):
-            english_span, self_english = english_div.contents
-            self.__english = self_english.strip()
-            side_contents_divs_index += 1
-        else:
-            self.__english = ''
-
-        # synonyms <div>
-        synonyms_div = side_contents_divs[side_contents_divs_index]
-        if global_functions.check_side_content_div('Synonyms', synonyms_div):
-            synonyms_span, self_synonyms = synonyms_div.contents
-            self.__synonyms = self_synonyms.strip()
-            side_contents_divs_index += 1
-        else:
-            self.__synonyms = ''
-
-        # japanese <div>
-        japanese_div = side_contents_divs[side_contents_divs_index]
-        if global_functions.check_side_content_div('Japanese', japanese_div):
-            japanese_span, self_japanese = japanese_div.contents
-            self.__japanese = self_japanese.strip()
-            side_contents_divs_index += 1
-        else:
-            self.__japanese = ''
-
-        # type <div>
-        type_div = side_contents_divs[side_contents_divs_index]
-        if not global_functions.check_side_content_div('Type', type_div):
-            raise exceptions.FailedToReloadError(content_wrapper_div)
-        type_span, self_type = type_div.contents
-        self.__type = self_type.strip()
-        side_contents_divs_index += 1
-
-        # episodes <div>
-        episodes_div = side_contents_divs[side_contents_divs_index]
-        if not global_functions.check_side_content_div('Episodes', episodes_div):
-            raise exceptions.FailedToReloadError(content_wrapper_div)
-        episodes_span, self_episodes = episodes_div.contents
-        self.__episodes = global_functions.make_counter(self_episodes.strip())
-
-        side_contents_divs_index += 1
-
-        # status <div>
-        status_div = side_contents_divs[side_contents_divs_index]
-        if not global_functions.check_side_content_div('Status', status_div):
-            raise exceptions.FailedToReloadError(content_wrapper_div)
-        status_span, self.__status = status_div.contents
-        self.__status = self.__status.strip()
-        side_contents_divs_index += 1
-
-        # aired <div>
-        aired_div = side_contents_divs[side_contents_divs_index]
-        if not global_functions.check_side_content_div('Aired', aired_div):
-            raise exceptions.FailedToReloadError(content_wrapper_div)
-        aired_span, aired = aired_div.contents
-        self.__start_time, self.__end_time = global_functions.make_start_and_end_time(aired)
-        side_contents_divs_index += 1
-
-        # producers <div>
-        producers_div = side_contents_divs[side_contents_divs_index]
-        if not global_functions.check_side_content_div('Producers', producers_div):
-            raise exceptions.FailedToReloadError(content_wrapper_div)
-        for producer_link in producers_div.findAll(name='a'):
-            self.__creators[producer_link.text.strip()] = producer_link['href']
-        side_contents_divs_index += 1
-
-        # genres <div>
-        genres_div = side_contents_divs[side_contents_divs_index]
-        if not global_functions.check_side_content_div('Genres', genres_div):
-            raise exceptions.FailedToReloadError(content_wrapper_div)
-        for genre_link in genres_div.findAll(name='a'):
-            self.__genres[genre_link.text.strip()] = genre_link['href']
-        side_contents_divs_index += 1
-
-        # duration <div>
-        duration_div = side_contents_divs[side_contents_divs_index]
-        if not global_functions.check_side_content_div('Duration', duration_div):
-            raise exceptions.FailedToReloadError(content_wrapper_div)
-
-        duration_span, duration_string = duration_div.contents
+        # Reset all sidebar fields before label-based lookup
+        self.__english = ""
+        self.__synonyms = ""
+        self.__japanese = ""
+        self.__type = ""
+        self.__episodes = 0
+        self.__status = ""
+        self.__start_time = 0
+        self.__end_time = 0
+        self.__creators = {}
+        self.__genres = {}
         self.__duration = 0
-        duration_parts = duration_string.strip().split('.')
-        duration_parts = list(map(lambda x: x.strip(), duration_parts))[:-1]
-        for duration_part in duration_parts:
-            number, scale = duration_part.split()
-            number = int(number)
-            if scale == 'min':
-                self.__duration += number
-            elif scale == 'hr':
-                self.__duration += number * 60
-            else:
-                raise exceptions.FailedToReloadError('scale {0:s} is unknown'.format(scale))
-        side_contents_divs_index += 1
+        self.__rating = ""
+        self.__score = 0.0
+        self.__rank = 0
+        self.__popularity = 0
 
-        # rating <div>
-        rating_div = side_contents_divs[side_contents_divs_index]
-        if not global_functions.check_side_content_div('Rating', rating_div):
-            raise exceptions.FailedToReloadError(content_wrapper_div)
-        rating_span, self.__rating = rating_div.contents
-        self.__rating = self.__rating.strip()
-        side_contents_divs_index += 1
+        # Parse all metadata fields by label text (span.dark_text)
+        for div in leftside.find_all("div"):
+            span = div.find("span", class_="dark_text")
+            if not span:
+                continue
+            label = span.get_text(strip=True).rstrip(":")
+            value = div.get_text(strip=True)
+            # Strip the label prefix from value
+            label_with_colon = span.get_text(strip=True)
+            if value.startswith(label_with_colon):
+                value = value[len(label_with_colon) :].strip()
 
-        # score <div>
-        score_div = side_contents_divs[side_contents_divs_index]
-        if not global_functions.check_side_content_div('Score', score_div):
-            raise exceptions.FailedToReloadError(content_wrapper_div)
-        score_span, self_score = score_div.contents[:2]
-        self.__score = float(self_score)
-        side_contents_divs_index += 1
-
-        # rank <div>
-        rank_div = side_contents_divs[side_contents_divs_index]
-        if not global_functions.check_side_content_div('Ranked', rank_div):
-            raise exceptions.FailedToReloadError(content_wrapper_div)
-        rank_span, self_rank = rank_div.contents[:2]
-        self_rank = self_rank.strip()
-        if not self_rank.startswith("#"):
-            raise exceptions.FailedToReloadError(self_rank)
-        self.__rank = int(self_rank[1:])
-        side_contents_divs_index += 1
-
-        # popularity <div>
-        popularity_div = side_contents_divs[side_contents_divs_index]
-        if not global_functions.check_side_content_div('Popularity', popularity_div):
-            raise exceptions.FailedToReloadError(content_wrapper_div)
-        popularity_span, self_popularity = popularity_div.contents[:2]
-        self_popularity = self_popularity.strip()
-        if not self_popularity.startswith("#"):
-            raise exceptions.FailedToReloadError(self_popularity)
-        self.__popularity = int(self_popularity[1:])
+            if label == "English":
+                self.__english = value
+            elif label == "Synonyms":
+                self.__synonyms = value
+            elif label == "Japanese":
+                self.__japanese = value
+            elif label == "Type":
+                self.__type = value
+            elif label == "Episodes":
+                self.__episodes = global_functions.make_counter(value)
+            elif label == "Status":
+                self.__status = value
+            elif label == "Aired":
+                self.__start_time, self.__end_time = (
+                    global_functions.make_start_and_end_time(value)
+                )
+            elif label in ("Producers", "Studios", "Licensors"):
+                for a in div.find_all("a"):
+                    self.__creators[a.get_text(strip=True)] = a["href"]
+            elif label in ("Genres", "Genre", "Themes", "Theme", "Demographic"):
+                for a in div.find_all("a"):
+                    self.__genres[a.get_text(strip=True)] = a["href"]
+            elif label == "Duration":
+                self.__duration = 0
+                duration_parts = value.split(".")
+                duration_parts = [p.strip() for p in duration_parts if p.strip()]
+                for part in duration_parts:
+                    tokens = part.split()
+                    if len(tokens) >= 2 and tokens[1] in ("min", "hr"):
+                        number = int(tokens[0])
+                        if tokens[1] == "min":
+                            self.__duration += number
+                        elif tokens[1] == "hr":
+                            self.__duration += number * 60
+            elif label == "Rating":
+                self.__rating = value
+            elif label == "Score":
+                try:
+                    self.__score = float(value.split()[0])
+                except (ValueError, IndexError):
+                    self.__score = 0.0
+            elif label == "Ranked":
+                rank_str = value.lstrip("#").split()[0]
+                try:
+                    self.__rank = int(rank_str)
+                except ValueError:
+                    self.__rank = 0
+            elif label == "Popularity":
+                pop_str = value.lstrip("#").split()[0]
+                try:
+                    self.__popularity = int(pop_str)
+                except ValueError:
+                    self.__popularity = 0
 
         # Data from main content
         main_content = contents[1]
-        main_content_inner_divs = main_content.findAll(
-            name='div', recursive=False)
-        if 2 != len(main_content_inner_divs):
+        main_content_inner_divs = main_content.find_all(name="div", recursive=False)
+        if len(main_content_inner_divs) != 2:
             raise exceptions.FailedToReloadError(
-            "Got len(main_content_inner_divs) == {0:d}".format(
-                len(main_content_inner_divs)))
-        main_content_datas = main_content_inner_divs[
-            1].table.tbody.findAll(name="tr", recursive=False)
+                f"Got len(main_content_inner_divs) == {len(main_content_inner_divs):d}"
+            )
+        main_content_datas = (
+            main_content_inner_divs[1].table.find("tbody")
+            or main_content_inner_divs[1].table
+        )
+        main_content_datas = main_content_datas.find_all(name="tr", recursive=False)
 
         synopsis_cell = main_content_datas[0]
         main_content_other_data = main_content_datas[1]
@@ -480,73 +435,98 @@ class Anime(object, metaclass=singleton_factory.SingletonFactory):
         # Getting synopsis
         synopsis_cell = synopsis_cell.td
         synopsis_cell_contents = synopsis_cell.contents
-        if 'Synopsis' != synopsis_cell.h2.text.strip():
+        if synopsis_cell.h2.text.strip() != "Synopsis":
             raise exceptions.FailedToReloadError(synopsis_cell.h2.text.strip())
-        self.__synopsis = os.linesep.join([
-            synopsis_cell_content.strip()
-            for synopsis_cell_content in synopsis_cell_contents[1:-1]
-            if isinstance(synopsis_cell_content, bs4.element.NavigableString)
-        ])
+        self.__synopsis = os.linesep.join(
+            [
+                synopsis_cell_content.strip()
+                for synopsis_cell_content in synopsis_cell_contents[1:-1]
+                if isinstance(synopsis_cell_content, bs4.element.NavigableString)
+            ]
+        )
 
         # Getting other data
         main_content_other_data = main_content_other_data.td
-        other_data_kids = [i for i in main_content_other_data.children]
+        other_data_kids = list(main_content_other_data.children)
 
         # Getting all the data under 'Related Anime'
         index = 0
         index = global_functions.get_next_index(index, other_data_kids)
-        if 'h2' == other_data_kids[index].name and\
-           'Related Anime' == other_data_kids[index].text.strip():
+        if (
+            other_data_kids[index].name == "h2"
+            and other_data_kids[index].text.strip() == "Related Anime"
+        ):
             index += 1
-            while other_data_kids[index + 1].name != 'br':
+            while other_data_kids[index + 1].name != "br":
                 index = global_functions.make_set(
-                    self.related_str_to_set_dict[
-                        other_data_kids[index].strip()],
-                    index, other_data_kids)
+                    self.related_str_to_set_dict[other_data_kids[index].strip()],
+                    index,
+                    other_data_kids,
+                )
         else:
             index -= 2
         next_index = global_functions.get_next_index(index, other_data_kids)
 
         if consts.DEBUG:
             if next_index - index != 2:
-                raise exceptions.FailedToReloadError("{0:d} - {1:d}".format(next_index, index))
+                raise exceptions.FailedToReloadError(f"{next_index:d} - {index:d}")
             index = next_index + 1
 
             # Getting all the data under 'Characters & Voice Actors'
-            if 'h2' != other_data_kids[index].name:
-                raise exceptions.FailedToReloadError('h2 == {0:s}'.format(other_data_kids[index].name))
-            if 'Characters & Voice Actors' != other_data_kids[index].contents[-1]:
+            if other_data_kids[index].name != "h2":
+                raise exceptions.FailedToReloadError(
+                    f"h2 == {other_data_kids[index].name:s}"
+                )
+            if other_data_kids[index].contents[-1] != "Characters & Voice Actors":
                 raise exceptions.FailedToReloadError(other_data_kids[index].contents[-1])
 
-        tag_for_reviews = main_content_other_data.find(text='More reviews').parent
-        link_for_reviews = request.urljoin(consts.HOST_NAME, tag_for_reviews['href'])
-        self.__parse_reviews(link_for_reviews)
+        reviews_tag = main_content_other_data.find(string="More reviews")
+        if reviews_tag is not None:
+            link_for_reviews = request.urljoin(
+                consts.HOST_NAME, reviews_tag.parent["href"]
+            )
+            self.__parse_reviews(link_for_reviews)
 
-        tag_for_recommendations = main_content_other_data.find(text='More recommendations').parent
-        link_for_recommendations = request.urljoin(consts.HOST_NAME, tag_for_recommendations['href'])
-        self.__parse_recommendations(link_for_recommendations)
+        recommendations_tag = main_content_other_data.find(string="More recommendations")
+        if recommendations_tag is not None:
+            link_for_recommendations = request.urljoin(
+                consts.HOST_NAME, recommendations_tag.parent["href"]
+            )
+            self.__parse_recommendations(link_for_recommendations)
 
         self._is_loaded = True
 
     def __parse_reviews(self, link_for_reviews: str):
         from pymal.inner_objects import review
 
-        content_wrapper_div = global_functions.get_content_wrapper_div(link_for_reviews, global_functions.connect)
-        content_div = content_wrapper_div.find(name="div", attrs={"id": "content"}, recursive=False)
-        _,  main_cell = content_div.table.tbody.tr.findAll(name='td', recursive=False)
-        _, reviews_data_div = main_cell.findAll(name='div', recursive=False)
-        reviews_data = reviews_data_div.findAll(name='div', recursive=False)[2:-2]
+        content_wrapper_div = global_functions.get_content_wrapper_div(
+            link_for_reviews, global_functions.connect
+        )
+        content_div = content_wrapper_div.find(
+            name="div", attrs={"id": "content"}, recursive=False
+        )
+        _, main_cell = content_div.table.tbody.tr.findAll(name="td", recursive=False)
+        _, reviews_data_div = main_cell.findAll(name="div", recursive=False)
+        reviews_data = reviews_data_div.findAll(name="div", recursive=False)[2:-2]
         self.reviews = frozenset(map(review.Review, reviews_data))
 
     def __parse_recommendations(self, link_for_recommendations: str):
         from pymal.inner_objects import recommendation
 
-        content_wrapper_div = global_functions.get_content_wrapper_div(link_for_recommendations, global_functions.connect)
-        content_div = content_wrapper_div.find(name="div", attrs={"id": "content"}, recursive=False)
-        _,  main_cell = content_div.table.tbody.tr.findAll(name='td', recursive=False)
-        _, recommendations_data_div = main_cell.findAll(name='div', recursive=False)
-        recommendations_data = recommendations_data_div.findAll(name='div', recursive=False)[2:-1]
-        self.recommendations = frozenset(map(recommendation.Recommendation, recommendations_data))
+        content_wrapper_div = global_functions.get_content_wrapper_div(
+            link_for_recommendations, global_functions.connect
+        )
+        content_div = content_wrapper_div.find(
+            name="div", attrs={"id": "content"}, recursive=False
+        )
+        _, main_cell = content_div.table.tbody.tr.findAll(name="td", recursive=False)
+        _, recommendations_data_div = main_cell.findAll(name="div", recursive=False)
+        recommendations_data = recommendations_data_div.findAll(
+            name="div", recursive=False
+        )[2:-1]
+        self.recommendations = frozenset(
+            map(recommendation.Recommendation, recommendations_data)
+        )
 
     @property
     def MY_MAL_XML_TEMPLATE(self) -> str:
@@ -580,15 +560,29 @@ class Anime(object, metaclass=singleton_factory.SingletonFactory):
         from pymal import exceptions
 
         data = self.MY_MAL_XML_TEMPLATE.format(
-            0, 6, 0, 0, 0, 0, 0, 0, consts.MALAPI_NONE_TIME,
-            consts.MALAPI_NONE_TIME, 0, False, False, '', '', ''
+            0,
+            6,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            consts.MALAPI_NONE_TIME,
+            consts.MALAPI_NONE_TIME,
+            0,
+            False,
+            False,
+            "",
+            "",
+            "",
         )
-        xml = ''.join(map(lambda x: x.strip(), data.splitlines()))
+        xml = "".join(x.strip() for x in data.splitlines())
         delete_url = self.__MY_MAL_ADD_URL.format(self.id)
         ret = account.auth_connect(
             delete_url,
-            data='data=' + xml,
-            headers={'Content-Type': 'application/x-www-form-urlencoded'}
+            data="data=" + xml,
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
         )
         try:
             html_obj = bs4.BeautifulSoup(ret)
@@ -610,12 +604,13 @@ class Anime(object, metaclass=singleton_factory.SingletonFactory):
             my_id, string = data.split()
             if not my_id.isdigit():
                 raise exceptions.FailedToAddError(my_id)
-            if string != 'Created':
+            if string != "Created":
                 raise exceptions.FailedToAddError(string)
-        except exceptions.FailedToAddError:
-            raise exceptions.MyAnimeListApiAddError(ret)
+        except exceptions.FailedToAddError as err:
+            raise exceptions.MyAnimeListApiAddError(ret) from err
 
         from pymal.account_objects import my_anime
+
         return my_anime.MyAnime(self, my_id, account)
 
     def __eq__(self, other):
@@ -625,7 +620,7 @@ class Anime(object, metaclass=singleton_factory.SingletonFactory):
             return self.id == other
         elif isinstance(other, str) and other.isdigit():
             return self.id == int(other)
-        elif hasattr(other, 'id'):
+        elif hasattr(other, "id"):
             return self.id == other.id
         return False
 
@@ -634,13 +629,12 @@ class Anime(object, metaclass=singleton_factory.SingletonFactory):
 
         hash_md5 = hashlib.md5()
         hash_md5.update(str(self.id).encode())
-        hash_md5.update(b'Anime')
+        hash_md5.update(b"Anime")
         return int(hash_md5.hexdigest(), 16)
 
     def __repr__(self):
-        title = '' if self.__title is None else ' ' + self.__title
-        return "<{0:s}{1:s} id={2:d}>".format(self.__class__.__name__, title,
-                                              self.__id)
+        title = "" if self.__title is None else " " + self.__title
+        return f"<{self.__class__.__name__:s}{title:s} id={self.__id:d}>"
 
     def __format__(self, format_spec):
         return str(self).__format__(format_spec)

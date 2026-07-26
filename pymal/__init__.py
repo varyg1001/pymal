@@ -3,7 +3,7 @@ __copyright__ = "(c) 2014, pymal"
 __license__ = "BSD License"
 __contact__ = "Name Of Current Guardian of this file <email@address>"
 
-__all__ = ['account', 'anime', 'manga', 'seasons']
+__all__ = ["account", "anime", "manga", "seasons"]
 
 
-__version__ = '0.6'
+__version__ = "1.0.0"

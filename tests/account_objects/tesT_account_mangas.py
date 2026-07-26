@@ -1,10 +1,12 @@
 import unittest
 
-from pymal import account
+from pymal import account, manga
 from pymal.account_objects import account_mangas
-from pymal import manga
-
-from tests.constants_for_testing import ACCOUNT_TEST_USERNAME, ACCOUNT_TEST_PASSWORD, MANGA_ID
+from tests.constants_for_testing import (
+    ACCOUNT_TEST_PASSWORD,
+    ACCOUNT_TEST_USERNAME,
+    MANGA_ID,
+)
 
 
 class AccountMangaListTestCase(unittest.TestCase):
@@ -36,7 +38,9 @@ class AccountMangaListTestCase(unittest.TestCase):
         self.assertIn(MANGA_ID, self.mangas)
 
     def test_str(self):
-        self.assertEqual(str(self.mangas), "<User mangas' number is {0:d}>".format(self.EXPECTED_LENGTH))
+        self.assertEqual(
+            str(self.mangas), f"<User mangas' number is {self.EXPECTED_LENGTH:d}>"
+        )
 
 
 class AccountMangaListInteraction(unittest.TestCase):
@@ -89,5 +93,5 @@ def main():
     unittest.main()
 
 
-if '__main__' == __name__:
+if __name__ == "__main__":
     main()

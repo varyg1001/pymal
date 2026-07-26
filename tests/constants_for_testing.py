@@ -1,8 +1,12 @@
-from os import path
+import os
+from pathlib import Path
 
-ACCOUNT_TEST_MAIL = "pymal-developer@mailinator.com"
-ACCOUNT_TEST_USERNAME = "pymal-developr"
-ACCOUNT_TEST_PASSWORD = "a0ataqett"
+
+# Credentials are read from environment variables.
+# Set MAL_USERNAME and MAL_PASSWORD to run the live account tests.
+# Without them, all account_objects tests are automatically skipped.
+ACCOUNT_TEST_USERNAME = os.environ.get("MAL_USERNAME")
+ACCOUNT_TEST_PASSWORD = os.environ.get("MAL_PASSWORD")
 
 ANIME_ID = 1887
 MANGA_ID = 587
@@ -10,4 +14,4 @@ MANGA_ID = 587
 ADD_ANIME_ID = 20707
 ADD_MANGA_ID = 11
 
-SOURCES_DIRECTORY = path.join(path.dirname(__file__), 'sources')
+SOURCES_DIRECTORY = Path(__file__).parent / "sources"

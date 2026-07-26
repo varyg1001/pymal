@@ -4,7 +4,7 @@ __license__ = "BSD License"
 __contact__ = "Name Of Current Guardian of this file <email@address>"
 
 
-class Review(object):
+class Review:
     """
     Review holds all the data from a review in MAL about an anime.
 
@@ -16,6 +16,7 @@ class Review(object):
     :ivar rating: :class:`int`
     :ivar data: :class:`string`
     """
+
     def __init__(self, div):
         """
         :param div: The div of the review to parse all the data from it.
@@ -28,10 +29,14 @@ class Review(object):
         self.date = time_div.div.text
 
         general_data_row = general_data_div.table.tbody.tr
-        _, user_cell, general_data_cell = general_data_row.findAll(name="td", recursive=False)
+        _, user_cell, general_data_cell = general_data_row.findAll(
+            name="td", recursive=False
+        )
 
         self.account = account.Account(user_cell.a.text)
-        helpful_span, watched_span = user_cell.find(name="div", attrs={"class": "lightLink spaceit"}).findAll(name="span")
+        helpful_span, watched_span = user_cell.find(
+            name="div", attrs={"class": "lightLink spaceit"}
+        ).findAll(name="span")
 
         self.helpful = int(helpful_span.text)
         self.watched = int(watched_span.text)
@@ -44,11 +49,4 @@ class Review(object):
         self.data = text_div.text
 
     def __repr__(self):
-        return "<{0:s} written by {1:s} when {2:s}, rated {3:d} ({4:d}/{5:d})>".format(
-            self.__class__.__name__,
-            self.account.username,
-            self.when_written,
-            self.rating,
-            self.helpful,
-            self.watched
-        )
+        return f"<{self.__class__.__name__:s} written by {self.account.username:s} when {self.when_written:s}, rated {self.rating:d} ({self.helpful:d}/{self.watched:d})>"

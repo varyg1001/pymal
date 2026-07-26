@@ -5,11 +5,12 @@ __contact__ = "Name Of Current Guardian of this file <email@address>"
 
 from urllib import request
 
-from pymal.consts import HOST_NAME
 from pymal import decorators
+from pymal.consts import HOST_NAME
 from pymal.types import ReloadedSet
 
-__all__ = ['AccountAnimes']
+
+__all__ = ["AccountAnimes"]
 
 
 class AccountAnimes(ReloadedSet.ReloadedSetSingletonFactory):
@@ -45,18 +46,16 @@ class AccountAnimes(ReloadedSet.ReloadedSetSingletonFactory):
             3: self.__on_hold,
             4: self.__dropped,
             6: self.__plan_to_watch,
-
-            '1': self.__watching,
-            '2': self.__completed,
-            '3': self.__on_hold,
-            '4': self.__dropped,
-            '6': self.__plan_to_watch,
-
-            'watching': self.__watching,
-            'completed': self.__completed,
-            'onhold': self.__on_hold,
-            'dropped': self.__dropped,
-            'plantowatch': self.__plan_to_watch,
+            "1": self.__watching,
+            "2": self.__completed,
+            "3": self.__on_hold,
+            "4": self.__dropped,
+            "6": self.__plan_to_watch,
+            "watching": self.__watching,
+            "completed": self.__completed,
+            "onhold": self.__on_hold,
+            "dropped": self.__dropped,
+            "plantowatch": self.__plan_to_watch,
         }
 
         self._is_loaded = False
@@ -112,8 +111,13 @@ class AccountAnimes(ReloadedSet.ReloadedSetSingletonFactory):
         :return: The all the animes
         :rtype: frozenset
         """
-        return self.watching | self.completed | self.on_hold | self.dropped |\
-               self.plan_to_watch
+        return (
+            self.watching
+            | self.completed
+            | self.on_hold
+            | self.dropped
+            | self.plan_to_watch
+        )
 
     def reload(self):
         """
@@ -136,11 +140,11 @@ class AccountAnimes(ReloadedSet.ReloadedSetSingletonFactory):
             data = self.__account.connect(self.__url + str(status))
         body = bs4.BeautifulSoup(data).body
 
-        main_div = body.find(name='div', attrs={'id': 'list_surround'})
-        tables = main_div.findAll(name='table', reucrsive=False)
-        if 4 >= len(tables):
+        main_div = body.find(name="div", attrs={"id": "list_surround"})
+        tables = main_div.findAll(name="table", reucrsive=False)
+        if len(tables) <= 4:
             return frozenset()
-        rows = tables[3: -1]
+        rows = tables[3:-1]
 
         return frozenset(map(self.__parse_obj_table, rows))
 
@@ -149,22 +153,22 @@ class AccountAnimes(ReloadedSet.ReloadedSetSingletonFactory):
 
         from pymal.account_objects.my_anime import MyAnime as obj
 
-        links_div = div.findAll(name='td', recorsive=False)[1]
+        links_div = div.findAll(name="td", recorsive=False)[1]
 
-        link = links_div.find(name='a', attrs={'class': 'animetitle'})
-        link_id = int(link['href'].split('/')[2])
+        link = links_div.find(name="a", attrs={"class": "animetitle"})
+        link_id = int(link["href"].split("/")[2])
 
         if self.__account.is_auth:
-            my_link = links_div.find(name='a', attrs={'class': 'List_LightBox'})
-            _, query = parse.splitquery(my_link['href'])
-            my_link_id = int(parse.parse_qs(query)['id'][0])
+            my_link = links_div.find(name="a", attrs={"class": "List_LightBox"})
+            _, query = parse.splitquery(my_link["href"])
+            my_link_id = int(parse.parse_qs(query)["id"][0])
         else:
             my_link_id = 0
 
         return obj(link_id, my_link_id, self.__account)
 
     def __repr__(self):
-        return "<User animes' number is {0:d}>".format(len(self))
+        return f"<User animes' number is {len(self):d}>"
 
     def __hash__(self):
         import hashlib

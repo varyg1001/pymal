@@ -8,10 +8,10 @@ from urllib import parse
 import bs4
 from singleton3 import Singleton
 
-from pymal import global_functions, consts
+from pymal import consts, global_functions
 
 
-class SearchProvider(object, metaclass=Singleton):
+class SearchProvider(metaclass=Singleton):
     """
     A search engine.
     Change the following properties and it will search for you:
@@ -19,19 +19,17 @@ class SearchProvider(object, metaclass=Singleton):
      - _SEARCHED_URL_SUFFIX
      - _SEARCHED_OBJECT
     """
-    _SEARCH_NAME = ''
-    _SEARCHED_URL_SUFFIX = ''
+
+    _SEARCH_NAME = ""
+    _SEARCHED_URL_SUFFIX = ""
     _SEARCHED_OBJECT = object
 
     @property
     def __SEARCH_URL(self):
-        return parse.urljoin(consts.HOST_NAME, self._SEARCH_NAME + '.php')
+        return parse.urljoin(consts.HOST_NAME, self._SEARCH_NAME + ".php")
 
     def __make_url(self, search_line: str, show_number: int) -> str:
-        params = {
-            'q': search_line,
-            'show': show_number
-        }
+        params = {"q": search_line, "show": show_number}
         url_parts = list(parse.urlparse(self.__SEARCH_URL))
         query = dict(parse.parse_qsl(url_parts[4]))
         query.update(params)
@@ -46,10 +44,12 @@ class SearchProvider(object, metaclass=Singleton):
         if sock.url != search_url:
             return frozenset([parse.urlsplit(sock.url).path])
 
-        html = bs4.BeautifulSoup(sock.text)
-        div_content = html.find(name='div', attrs={'id': 'content'})
-        divs_pic = div_content.findAll(name='div', attrs={'class': 'picSurround'})
-        return frozenset(map(lambda x: x.a['href'], divs_pic))
+        html = bs4.BeautifulSoup(sock.text, "lxml")
+        div_content = html.find(name="div", attrs={"id": "content"})
+        if div_content is None:
+            return frozenset()
+        divs_pic = div_content.findAll(name="div", attrs={"class": "picSurround"})
+        return frozenset(x.a["href"] for x in divs_pic)
 
     def search(self, search_line: str) -> frozenset:
         """
@@ -67,4 +67,6 @@ class SearchProvider(object, metaclass=Singleton):
             res = self.__get_list(search_line, current_index)
         ret.update(res)
 
-        return frozenset(map(lambda x: self._SEARCHED_OBJECT(x.split(self._SEARCHED_URL_SUFFIX)[1]), ret))
+        return frozenset(
+            self._SEARCHED_OBJECT(x.split(self._SEARCHED_URL_SUFFIX)[1]) for x in ret
+        )

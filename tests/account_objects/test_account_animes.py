@@ -1,11 +1,12 @@
 import unittest
 
-from pymal import account
-from pymal.account_objects import account_animes
-from pymal import anime
-from pymal.account_objects import my_anime
-
-from tests.constants_for_testing import ACCOUNT_TEST_USERNAME, ACCOUNT_TEST_PASSWORD, ANIME_ID
+from pymal import account, anime
+from pymal.account_objects import account_animes, my_anime
+from tests.constants_for_testing import (
+    ACCOUNT_TEST_PASSWORD,
+    ACCOUNT_TEST_USERNAME,
+    ANIME_ID,
+)
 
 
 class AccountAnimeListTestCase(unittest.TestCase):
@@ -36,7 +37,9 @@ class AccountAnimeListTestCase(unittest.TestCase):
         self.assertIn(ANIME_ID, self.animes)
 
     def test_str(self):
-        self.assertEqual(str(self.animes), "<User animes' number is {0:d}>".format(self.EXPECTED_LENGTH))
+        self.assertEqual(
+            str(self.animes), f"<User animes' number is {self.EXPECTED_LENGTH:d}>"
+        )
 
 
 class AccountAnimeListInteraction(unittest.TestCase):
@@ -79,7 +82,7 @@ class AccountAnimeListInteraction(unittest.TestCase):
         operator = self.animes <= self.friend_animes
         self.assertEqual(regular, operator)
 
-    @unittest.skip('need to re think about this')
+    @unittest.skip("need to re think about this")
     def test_issuperset(self):
         regular = self.animes.issubset(self.friend_animes)
         operator = self.animes >= self.friend_animes
@@ -90,5 +93,5 @@ def main():
     unittest.main()
 
 
-if '__main__' == __name__:
+if __name__ == "__main__":
     main()

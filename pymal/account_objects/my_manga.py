@@ -3,19 +3,18 @@ __copyright__ = "(c) 2014, pymal"
 __license__ = "BSD License"
 __contact__ = "Name Of Current Guardian of this file <email@address>"
 
-from urllib import request
 import time
+from urllib import request
 
 import singleton_factory
 
-from pymal import consts
-from pymal import decorators
-from pymal import exceptions
-
-__all__ = ['MyManga']
+from pymal import consts, decorators, exceptions
 
 
-class MyManga(object, metaclass=singleton_factory.SingletonFactory):
+__all__ = ["MyManga"]
+
+
+class MyManga(metaclass=singleton_factory.SingletonFactory):
     """
     Saves an account data about manga.
 
@@ -39,18 +38,19 @@ class MyManga(object, metaclass=singleton_factory.SingletonFactory):
     :ivar my_retail_volumes: int.
     """
 
-    __TAG_SEPARATOR = ';'
-    __MY_MAL_URL = request.urljoin(
-        consts.HOST_NAME, 'panel.php?go=editmanga&id={0:d}')
+    __TAG_SEPARATOR = ";"
+    __MY_MAL_URL = request.urljoin(consts.HOST_NAME, "panel.php?go=editmanga&id={0:d}")
     __MY_MAL_DELETE_URL = request.urljoin(
-        consts.HOST_NAME, 'api/mangalist/delete/{0:d}.xml')
+        consts.HOST_NAME, "api/mangalist/delete/{0:d}.xml"
+    )
     __MY_MAL_UPDATE_URL = request.urljoin(
-        consts.HOST_NAME, 'api/mangalist/update/{0:d}.xml')
+        consts.HOST_NAME, "api/mangalist/update/{0:d}.xml"
+    )
 
     def __init__(self, mal_id: int, my_mal_id, account):
-        """
-        """
+        """ """
         from pymal import manga
+
         if isinstance(mal_id, manga.Manga):
             self.obj = mal_id
         else:
@@ -65,12 +65,12 @@ class MyManga(object, metaclass=singleton_factory.SingletonFactory):
         self.__my_status = 0
         self.my_enable_discussion = False
         self.__my_score = 0.0
-        self.__my_start_date = ''
-        self.__my_end_date = ''
+        self.__my_start_date = ""
+        self.__my_end_date = ""
         self.__my_priority = 0
         self.__my_storage_type = 0
-        self.__my_comments = ''
-        self.__my_fan_sub_groups = ''
+        self.__my_comments = ""
+        self.__my_fan_sub_groups = ""
         self.__my_tags = frozenset()
         self.__my_retail_volumes = 0
 
@@ -271,7 +271,9 @@ class MyManga(object, metaclass=singleton_factory.SingletonFactory):
         :type: int
         """
         if not (0 <= downloaded_chapters <= self.chapters):
-            raise RuntimeError("value of my_downloaded_chapters can be 0 to self.episodes")
+            raise RuntimeError(
+                "value of my_downloaded_chapters can be 0 to self.episodes"
+            )
         self.__my_downloaded_chapters = downloaded_chapters
 
     @property
@@ -289,7 +291,7 @@ class MyManga(object, metaclass=singleton_factory.SingletonFactory):
         :param times_reread: the times of rereading must be a positive value.
         :type: int
         """
-        if not (0 <= times_reread):
+        if not (times_reread >= 0):
             raise RuntimeError("value of my_times_reread can be 0 or more")
         self.__my_times_reread = times_reread
 
@@ -356,16 +358,17 @@ class MyManga(object, metaclass=singleton_factory.SingletonFactory):
 
         # Getting content wrapper <div>
         content_wrapper_div = global_functions.get_content_wrapper_div(
-            self.__my_mal_url, self._account.auth_connect)
+            self.__my_mal_url, self._account.auth_connect
+        )
 
-        bas_result = content_wrapper_div.find(name='div',
-                                              attrs={'class': 'badresult'})
+        bas_result = content_wrapper_div.find(name="div", attrs={"class": "badresult"})
         if bas_result is not None:
             raise exceptions.FailedToReloadError(bas_result)
 
         # Getting content <td>
         content_div = content_wrapper_div.find(
-            name="div", attrs={"id": "content"}, recursive=False)
+            name="div", attrs={"id": "content"}, recursive=False
+        )
         if content_div is None:
             raise exceptions.FailedToReloadError(content_wrapper_div)
         content_td = content_div.table.tr.td
@@ -373,195 +376,202 @@ class MyManga(object, metaclass=singleton_factory.SingletonFactory):
             raise exceptions.FailedToReloadError(content_div)
 
         # Getting content rows <tr>
-        content_form = content_td.find(name="form", attrs={'id': "mangaForm"})
+        content_form = content_td.find(name="form", attrs={"id": "mangaForm"})
         if content_form is None:
             raise exceptions.FailedToReloadError(content_td)
-        content_rows = content_form.table.tbody.findAll(
-            name="tr", recursive=False)
+        content_rows = content_form.table.tbody.findAll(name="tr", recursive=False)
 
         contents_divs_index = 2
 
         # Getting my_status
         status_select = content_rows[contents_divs_index].find(
-            name="select", attrs={"id": "status", "name": "status"})
+            name="select", attrs={"id": "status", "name": "status"}
+        )
         if status_select is None:
             raise exceptions.FailedToReloadError(content_rows)
 
         # TODO: make this look better
-        status_selected_options = list(filter(
-            lambda x: 'selected' in x.attrs,
-            status_select.findAll(name="option")
-        ))
-        if 1 != len(status_selected_options):
+        status_selected_options = list(
+            filter(lambda x: "selected" in x.attrs, status_select.findAll(name="option"))
+        )
+        if len(status_selected_options) != 1:
             raise exceptions.FailedToReloadError(status_selected_options)
-        self.__my_status = int(status_selected_options[0]['value'])
+        self.__my_status = int(status_selected_options[0]["value"])
 
         is_reread_node = content_rows[contents_divs_index].find(
-            name="input", attrs={"id": "rereadingBox"})
+            name="input", attrs={"id": "rereadingBox"}
+        )
         if is_reread_node is None:
             raise exceptions.FailedToReloadError(content_rows)
-        self.__my_is_rereading = bool(is_reread_node['value'])
+        self.__my_is_rereading = bool(is_reread_node["value"])
         contents_divs_index += 1
 
         # Getting read volumes
-        read_input = content_rows[contents_divs_index].\
-            find(name="input", attrs={"id": "vol_read",
-                                      "name": "vol_read"})
+        read_input = content_rows[contents_divs_index].find(
+            name="input", attrs={"id": "vol_read", "name": "vol_read"}
+        )
         if read_input is None:
             raise exceptions.FailedToReloadError(content_rows)
-        self.__my_completed_volumes = int(read_input['value'])
+        self.__my_completed_volumes = int(read_input["value"])
         contents_divs_index += 1
 
         # Getting read chapters
-        read_input = content_rows[contents_divs_index].\
-            find(name="input", attrs={"id": "chap_read",
-                                      "name": "chap_read"})
+        read_input = content_rows[contents_divs_index].find(
+            name="input", attrs={"id": "chap_read", "name": "chap_read"}
+        )
         if read_input is None:
             raise exceptions.FailedToReloadError(content_rows)
-        self.__my_completed_chapters = int(read_input['value'])
+        self.__my_completed_chapters = int(read_input["value"])
         contents_divs_index += 1
 
         # Getting my_score
         score_select = content_rows[contents_divs_index].find(
-            name="select", attrs={"name": "score"})
+            name="select", attrs={"name": "score"}
+        )
         if score_select is None:
             raise exceptions.FailedToReloadError(content_rows)
-        score_selected_option = score_select.find(
-            name="option", attrs={"selected": ""})
-        if score_selected_option is  None:
+        score_selected_option = score_select.find(name="option", attrs={"selected": ""})
+        if score_selected_option is None:
             raise exceptions.FailedToReloadError(content_rows)
-        self.__my_score = int(float(score_selected_option['value']))
+        self.__my_score = int(float(score_selected_option["value"]))
         contents_divs_index += 1
 
         # Getting my_tags...
         tag_content = content_rows[contents_divs_index]
-        tag_textarea = tag_content.find(
-            name="textarea", attrs={"name": "tags"})
+        tag_textarea = tag_content.find(name="textarea", attrs={"name": "tags"})
         self.__my_tags = frozenset(tag_textarea.text.split(self.__TAG_SEPARATOR))
         contents_divs_index += 1
 
         # Getting start date
         start_month_date_node = content_rows[contents_divs_index].find(
-            name="select", attrs={"name": "startMonth"})
+            name="select", attrs={"name": "startMonth"}
+        )
         if start_month_date_node is None:
             raise exceptions.FailedToReloadError(content_rows)
         start_month_date = start_month_date_node.find(
-            name="option", attrs={"selected": ""})
+            name="option", attrs={"selected": ""}
+        )
 
         start_day_date_node = content_rows[contents_divs_index].find(
-            name="select", attrs={"name": "startDay"})
+            name="select", attrs={"name": "startDay"}
+        )
         if start_day_date_node is None:
             raise exceptions.FailedToReloadError(content_rows)
-        start_day_date = start_day_date_node.find(
-            name="option", attrs={"selected": ""})
+        start_day_date = start_day_date_node.find(name="option", attrs={"selected": ""})
 
         start_year_date_node = content_rows[contents_divs_index].find(
-            name="select", attrs={"name": "startYear"})
+            name="select", attrs={"name": "startYear"}
+        )
         if start_year_date_node is None:
             raise exceptions.FailedToReloadError(content_rows)
-        start_year_date = start_year_date_node.find(
-            name="option", attrs={"selected": ""})
+        start_year_date = start_year_date_node.find(name="option", attrs={"selected": ""})
 
-        start_month_date = str(start_month_date['value']).zfill(2)
-        start_day_date = str(start_day_date['value']).zfill(2)
-        start_year_date = str(start_year_date['value']).zfill(2)
-        self.__my_start_date = start_month_date + \
-            start_day_date + start_year_date
+        start_month_date = str(start_month_date["value"]).zfill(2)
+        start_day_date = str(start_day_date["value"]).zfill(2)
+        start_year_date = str(start_year_date["value"]).zfill(2)
+        self.__my_start_date = start_month_date + start_day_date + start_year_date
         contents_divs_index += 1
 
         # Getting end date
         end_month_date_node = content_rows[contents_divs_index].find(
-            name="select", attrs={"name": "endMonth"})
+            name="select", attrs={"name": "endMonth"}
+        )
         if end_month_date_node is None:
             raise exceptions.FailedToReloadError(content_rows)
-        end_month_date = end_month_date_node.find(
-            name="option", attrs={"selected": ""})
+        end_month_date = end_month_date_node.find(name="option", attrs={"selected": ""})
 
         end_day_date_node = content_rows[contents_divs_index].find(
-            name="select", attrs={"name": "endDay"})
+            name="select", attrs={"name": "endDay"}
+        )
         if end_day_date_node is None:
             raise exceptions.FailedToReloadError(content_rows)
-        end_day_date = end_day_date_node.find(
-            name="option", attrs={"selected": ""})
+        end_day_date = end_day_date_node.find(name="option", attrs={"selected": ""})
 
         end_year_date_node = content_rows[contents_divs_index].find(
-            name="select", attrs={"name": "endYear"})
+            name="select", attrs={"name": "endYear"}
+        )
         if end_year_date_node is None:
             raise exceptions.FailedToReloadError(content_rows)
-        end_year_date = end_year_date_node.find(
-            name="option", attrs={"selected": ""})
+        end_year_date = end_year_date_node.find(name="option", attrs={"selected": ""})
 
-        end_month_date = str(end_month_date['value']).zfill(2)
-        end_day_date = str(end_day_date['value']).zfill(2)
-        end_year_date = str(end_year_date['value']).zfill(2)
+        end_month_date = str(end_month_date["value"]).zfill(2)
+        end_day_date = str(end_day_date["value"]).zfill(2)
+        end_year_date = str(end_year_date["value"]).zfill(2)
         self.__my_end_date = end_month_date + end_day_date + end_year_date
         contents_divs_index += 1
 
         # Getting priority
         priority_node = content_rows[contents_divs_index].find(
-            name="select", attrs={"name": "priority"})
+            name="select", attrs={"name": "priority"}
+        )
         if priority_node is None:
             raise exceptions.FailedToReloadError(content_rows)
-        selected_priority_node = priority_node.find(
-            name="option", attrs={"selected": ""})
+        selected_priority_node = priority_node.find(name="option", attrs={"selected": ""})
         if selected_priority_node is None:
             raise exceptions.FailedToReloadError(content_rows)
-        self.__my_priority = int(selected_priority_node['value'])
+        self.__my_priority = int(selected_priority_node["value"])
         contents_divs_index += 1
 
         # Getting storage
         storage_type_node = content_rows[contents_divs_index].find(
-            name="select", attrs={"id": "storageSel"})
+            name="select", attrs={"id": "storageSel"}
+        )
         if storage_type_node is None:
             raise exceptions.FailedToReloadError(content_rows)
         selected_storage_type_node = storage_type_node.find(
-            name="option", attrs={"selected": ""})
+            name="option", attrs={"selected": ""}
+        )
         if selected_storage_type_node is None:
             self.__my_storage_type = 0
         else:
-            self.__my_storage_type = int(selected_storage_type_node['value'])
+            self.__my_storage_type = int(selected_storage_type_node["value"])
         contents_divs_index += 1
 
         # Getting downloaded episodes
-        downloaded_chapters_node = content_rows[contents_divs_index].\
-            find(name="input", attrs={'id': "dChap",
-                                      'name': 'downloaded_chapters'})
+        downloaded_chapters_node = content_rows[contents_divs_index].find(
+            name="input", attrs={"id": "dChap", "name": "downloaded_chapters"}
+        )
         if downloaded_chapters_node is None:
             raise exceptions.FailedToReloadError(content_rows)
-        self.__my_downloaded_chapters == int(downloaded_chapters_node['value'])
+        self.__my_downloaded_chapters = int(downloaded_chapters_node["value"])
         contents_divs_index += 1
 
         # Getting time reread
         times_reread_node = content_rows[contents_divs_index].find(
-            name="input", attrs={'name': 'times_read'})
-        self.__my_times_reread == int(times_reread_node['value'])
+            name="input", attrs={"name": "times_read"}
+        )
         if times_reread_node is None:
             raise exceptions.FailedToReloadError(content_rows)
+        self.__my_times_reread = int(times_reread_node["value"])
         contents_divs_index += 1
 
         # Getting reread value
         reread_value_node = content_rows[contents_divs_index].find(
-            name="select", attrs={'name': 'reread_value'})
+            name="select", attrs={"name": "reread_value"}
+        )
         if reread_value_node is None:
             raise exceptions.FailedToReloadError(content_rows)
         reread_value_option = reread_value_node.find(
-            name='option', attrs={'selected': ''})
+            name="option", attrs={"selected": ""}
+        )
         if reread_value_option is None:
             self.__my_reread_value = 0
         else:
-            self.__my_reread_value = int(reread_value_option['value'])
+            self.__my_reread_value = int(reread_value_option["value"])
         contents_divs_index += 1
 
         # Getting comments
         comment_content = content_rows[contents_divs_index]
         comment_textarea = comment_content.find(
-            name="textarea", attrs={"name": "comments"})
+            name="textarea", attrs={"name": "comments"}
+        )
         self.__my_comments = comment_textarea.text
         contents_divs_index += 1
 
         # Getting discuss flag
         discuss_node = content_rows[contents_divs_index].find(
-            name='input', attrs={"name": "discuss"})
+            name="input", attrs={"name": "discuss"}
+        )
         if discuss_node is None:
             raise exceptions.FailedToReloadError(content_rows)
         self._is_my_loaded = True
@@ -587,7 +597,7 @@ class MyManga(object, metaclass=singleton_factory.SingletonFactory):
             self.my_comments,
             self.my_fan_sub_groups,
             self.__TAG_SEPARATOR.join(self.my_tags),
-            self.my_retail_volumes
+            self.my_retail_volumes,
         )
         return data
 
@@ -609,28 +619,28 @@ class MyManga(object, metaclass=singleton_factory.SingletonFactory):
         """
         Updating the anime data.
         """
-        xml = ''.join(map(lambda x: x.strip(), self.to_xml().splitlines()))
+        xml = "".join(x.strip() for x in self.to_xml().splitlines())
         update_url = self.__MY_MAL_UPDATE_URL.format(self.id)
         ret = self._account.auth_connect(
             update_url,
-            data='data=' + xml,
-            headers={'Content-Type': 'application/x-www-form-urlencoded'}
+            data="data=" + xml,
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
         )
-        if ret != 'Updated':
+        if ret != "Updated":
             raise exceptions.MyAnimeListApiUpdateError(ret)
 
     def delete(self):
         """
-        Deleteing the anime from the list.
+        Deleting the anime from the list.
         """
-        xml = ''.join(map(lambda x: x.strip(), self.to_xml().splitlines()))
+        xml = "".join(x.strip() for x in self.to_xml().splitlines())
         delete_url = self.__MY_MAL_DELETE_URL.format(self.id)
         ret = self._account.auth_connect(
             delete_url,
-            data='data=' + xml,
-            headers={'Content-Type': 'application/x-www-form-urlencoded'}
+            data="data=" + xml,
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
         )
-        if ret != 'Deleted':
+        if ret != "Deleted":
             raise exceptions.MyAnimeListApiDeleteError(ret)
 
     def increase(self) -> bool:
@@ -643,7 +653,7 @@ class MyManga(object, metaclass=singleton_factory.SingletonFactory):
         """
         if self.my_completed_chapters >= self.obj.chapters:
             return False
-        if 0 == self.my_completed_chapters and 2 != self.my_status:
+        if self.my_completed_chapters == 0 and self.my_status != 2:
             self.my_is_rereading = True
             self.my_times_reread += 1
             self.my_completed_chapters = 0
@@ -690,10 +700,10 @@ class MyManga(object, metaclass=singleton_factory.SingletonFactory):
         :return: True if succeed
         :rtype: bool
         """
-        if self.obj.chapters == float('inf'):
+        if self.obj.chapters == float("inf"):
             return False
         self.my_completed_chapters = self.obj.chapters
-        if self.obj.volumes != float('inf'):
+        if self.obj.volumes != float("inf"):
             self.my_completed_volumes = self.obj.volumes
         self.my_is_rereading = False
         self.my_status = 2
@@ -706,7 +716,7 @@ class MyManga(object, metaclass=singleton_factory.SingletonFactory):
         :return: True if succeed
         :rtype: bool
         """
-        if self.obj.chapters == float('inf'):
+        if self.obj.chapters == float("inf"):
             return False
         self.my_downloaded_chapters = self.obj.chapters
         return True
@@ -724,6 +734,5 @@ class MyManga(object, metaclass=singleton_factory.SingletonFactory):
         return hash(self.obj)
 
     def __repr__(self):
-        title = " '{0:s}'".format(self.title) if self.obj._is_loaded else ''
-        return "<{0:s}{1:s} of account '{2:s}' id={3:d}>".format(
-            self.__class__.__name__, title, self._account.username, self.id)
+        title = f" '{self.title:s}'" if self.obj._is_loaded else ""
+        return f"<{self.__class__.__name__:s}{title:s} of account '{self._account.username:s}' id={self.id:d}>"
