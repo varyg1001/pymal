@@ -23,10 +23,10 @@ class Season(metaclass=singleton_factory.SingletonFactory):
 
     __all__ = ["animes", "reload"]
 
-    __SEASON_URL = "http://malupdater.com/MalUpdater/Seasons/{0:d}_{1:s}.xml"
+    __SEASON_URL = "{0:s}/anime/season/{1:d}/{2:s}"
     __SEAONS_NAME_TO_START_MONTH = {"Winter": 1, "Spring": 4, "Summer": 7, "Fall": 10}
 
-    def __init__(self, season_name: str, year: int or str):
+    def __init__(self, season_name: str, year: int | str):
         """
         :param season_name: the name of the season. see __SEAONS_NAME_TO_START_MONTH keys.
         :type season_name: str
@@ -41,7 +41,9 @@ class Season(metaclass=singleton_factory.SingletonFactory):
         self.season_name = season_name.title()
         if self.season_name not in self.__SEAONS_NAME_TO_START_MONTH:
             raise exceptions.NotASeasonError(season_name)
-        self.url = self.__SEASON_URL.format(self.year, self.season_name)
+        self.url = self.__SEASON_URL.format(
+            consts.HOST_NAME, self.year, self.season_name.lower()
+        )
 
         self._is_loaded = False
         self.__animes = frozenset()
@@ -63,23 +65,24 @@ class Season(metaclass=singleton_factory.SingletonFactory):
         """
         fetching data.
         """
+        import re
+
         import bs4
-        import niquests
 
-        from pymal import anime
+        from pymal import anime, global_functions
 
-        sock = niquests.get(self.url)
-        xml = bs4.BeautifulSoup(sock.text)
-        animes_xml = frozenset(xml.body.findAll(name="anime", recursive=False))
-        animes_xml_with_id = frozenset(
-            filter(lambda x: x.malid.text.isdigit(), animes_xml)
-        )
-        if consts.DEBUG and len(animes_xml - animes_xml_with_id) != 0:
-            import sys
+        data = global_functions.connect(self.url)
+        html = bs4.BeautifulSoup(data, "lxml")
+        anime_ids = set()
 
-            print("animes with no id:", animes_xml - animes_xml_with_id, file=sys.stderr)  # noqa: T201
-        animes_ids = (int(x.malid.text) for x in animes_xml_with_id)
-        self.__animes = frozenset(anime.Anime(x) for x in animes_ids)
+        for a in html.find_all("a", class_="link-title"):
+            href = a.get("href", "")
+            match = re.search(r"/anime/(\d+)", href)
+            if match:
+                anime_ids.add(int(match.group(1)))
+
+        self.__animes = frozenset(anime.Anime(x) for x in anime_ids)
+        self._is_loaded = True
 
     def __iter__(self):
         return iter(self.animes)

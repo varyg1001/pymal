@@ -18,7 +18,7 @@ class Seasons(metaclass=Singleton):
     :ivar seasons: :class:`frozenset` of :class:`inner_objects..season.Season`.
     """
 
-    __SEASONS_URL = "http://malupdater.com/MalUpdater/Seasons/index.txt"
+    __SEASONS_URL = "{0:s}/anime/season/archive"
 
     def __init__(self):
         self.__seasons = frozenset()
@@ -33,20 +33,29 @@ class Seasons(metaclass=Singleton):
         """
         reloading all the known seasons.
         """
-        import bs4
-        import niquests
+        import re
 
+        import bs4
+
+        from pymal import consts, global_functions
         from pymal.inner_objects import season
 
-        sock = niquests.get(self.__SEASONS_URL)
-        body = bs4.BeautifulSoup(sock.text).body
+        url = self.__SEASONS_URL.format(consts.HOST_NAME)
+        data = global_functions.connect(url)
+        html = bs4.BeautifulSoup(data, "lxml")
 
-        seasons_lines = body.text.splitlines()
-        seasons = (
-            season.Season(*tuple(reversed(line.split("_")))) for line in seasons_lines
-        )
-        self.__seasons = frozenset(seasons)
+        season_objs = set()
+        for a in html.find_all("a"):
+            href = a.get("href", "")
+            match = re.search(
+                r"/anime/season/(\d{4})/(winter|spring|summer|fall)", href, re.IGNORECASE
+            )
+            if match:
+                year = int(match.group(1))
+                season_name = match.group(2).capitalize()
+                season_objs.add(season.Season(season_name, year))
 
+        self.__seasons = frozenset(season_objs)
         self._is_loaded = True
 
     def __contains__(self, item) -> bool:
