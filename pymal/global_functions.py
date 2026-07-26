@@ -6,14 +6,8 @@ __contact__ = "Name Of Current Guardian of this file <email@address>"
 import time
 from urllib import request
 
-import niquests
-
-
-try:
-    import httpcache
-except ImportError:
-    httpcache = None
 import bs4
+import niquests
 
 from pymal import consts, exceptions
 
@@ -26,15 +20,7 @@ __all__ = [
     "get_content_wrapper_div",
 ]
 
-
-def generate_session():
-    session = niquests.Session()
-    if httpcache is not None:
-        session.mount("http://", httpcache.CachingHTTPAdapter())
-    return session
-
-
-__SESSION = generate_session()
+__SESSION = niquests.Session()
 
 
 def url_fixer(url: str) -> str:

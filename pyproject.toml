@@ -13,7 +13,6 @@ dependencies = [
     "beautifulsoup4<5.0.0,>=4.12.3",
     "lxml<7.0.0,>=6.0.0",
     "pillow>=12.3.0",
-    "httpcache>=0.1.3",
     "singleton3>=1.0",
     "singleton-factory>=0.1",
 ]
