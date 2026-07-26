@@ -17,6 +17,10 @@
 - **`ReloadedSet`**: fixed `collections.Set` → `collections.abc.Set` (removed in Python 3.10)
 - **`HOST_NAME`**: updated `http://` → `https://` (MAL enforces HTTPS)
 
+### Known Issues & Endpoint Behavior
+- **Cloudflare / Bot Protection**: Direct scraping requests to `myanimelist.net/anime/<id>` may raise `GotRobotError` if triggered by MAL's Cloudflare `meta[name="robots"]` protection without custom browser headers or session bypass.
+- **Legacy Search Endpoint**: `SearchAnimesProvider` (and other search providers) rely on legacy `anime.php?q=...` endpoints, which currently return `405 Method Not Allowed` on MyAnimeList.
+
 ### Infrastructure
 - Migrated build system from `setup.py` to `uv_build` (`pyproject.toml`)
 - Replaced `nosetests` with `pytest`

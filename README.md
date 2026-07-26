@@ -61,6 +61,13 @@ Key runtime dependencies (full list in `pyproject.toml`):
 
 ---
 
+## Known Issues & Endpoint Behavior
+
+- **Cloudflare / Bot Protection**: Direct scraping requests to `myanimelist.net/anime/<id>` may raise `GotRobotError` if triggered by MAL's Cloudflare `meta[name="robots"]` protection without custom browser headers or session bypass.
+- **Legacy Search Endpoint**: `SearchAnimesProvider` relies on legacy `anime.php?q=...` endpoints which currently return `405 Method Not Allowed` on MyAnimeList.
+
+---
+
 ## Running tests
 
 ```bash
