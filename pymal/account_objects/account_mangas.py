@@ -5,7 +5,7 @@ __contact__ = "Name Of Current Guardian of this file <email@address>"
 
 from urllib import request
 
-from pymal import decorators
+from pymal import decorators, global_functions
 from pymal.consts import HOST_NAME
 from pymal.types import ReloadedSet
 
@@ -34,28 +34,28 @@ class AccountMangas(ReloadedSet.ReloadedSetSingletonFactory):
         self.__account = account
         self.__url = self.__URL.format(account.username)
 
-        self.__reading = frozenset()
-        self.__completed = frozenset()
-        self.__on_hold = frozenset()
-        self.__dropped = frozenset()
-        self.__plan_to_read = frozenset()
+        self._reading = frozenset()
+        self._completed = frozenset()
+        self._on_hold = frozenset()
+        self._dropped = frozenset()
+        self._plan_to_read = frozenset()
 
         self.map_of_lists = {
-            1: self.__reading,
-            2: self.__completed,
-            3: self.__on_hold,
-            4: self.__dropped,
-            6: self.__plan_to_read,
-            "1": self.__reading,
-            "2": self.__completed,
-            "3": self.__on_hold,
-            "4": self.__dropped,
-            "6": self.__plan_to_read,
-            "reading": self.__reading,
-            "completed": self.__completed,
-            "onhold": self.__on_hold,
-            "dropped": self.__dropped,
-            "plantoread": self.__plan_to_read,
+            1: self._reading,
+            2: self._completed,
+            3: self._on_hold,
+            4: self._dropped,
+            6: self._plan_to_read,
+            "1": self._reading,
+            "2": self._completed,
+            "3": self._on_hold,
+            "4": self._dropped,
+            "6": self._plan_to_read,
+            "reading": self._reading,
+            "completed": self._completed,
+            "onhold": self._on_hold,
+            "dropped": self._dropped,
+            "plantoread": self._plan_to_read,
         }
 
         self._is_loaded = False
@@ -63,54 +63,30 @@ class AccountMangas(ReloadedSet.ReloadedSetSingletonFactory):
     @property
     @decorators.load
     def reading(self) -> frozenset:
-        """
-        :return: The reading list
-        :rtype: frozenset
-        """
-        return self.__reading
+        return self._reading
 
     @property
     @decorators.load
     def completed(self) -> frozenset:
-        """
-        :return: The completed list
-        :rtype: frozenset
-        """
-        return self.__completed
+        return self._completed
 
     @property
     @decorators.load
     def on_hold(self) -> frozenset:
-        """
-        :return: The on hold list
-        :rtype: frozenset
-        """
-        return self.__on_hold
+        return self._on_hold
 
     @property
     @decorators.load
     def dropped(self) -> frozenset:
-        """
-        :return: The dropped list
-        :rtype: frozenset
-        """
-        return self.__dropped
+        return self._dropped
 
     @property
     @decorators.load
     def plan_to_read(self) -> frozenset:
-        """
-        :return: The plan to read list
-        :rtype: frozenset
-        """
-        return self.__plan_to_read
+        return self._plan_to_read
 
     @property
     def _values(self) -> frozenset:
-        """
-        :return: The all the mangas
-        :rtype: frozenset
-        """
         return (
             self.reading
             | self.completed
@@ -123,49 +99,54 @@ class AccountMangas(ReloadedSet.ReloadedSetSingletonFactory):
         """
         reloading data from MAL.
         """
-        self.__reading = self.__get_my_animes(1)
-        self.__completed = self.__get_my_animes(2)
-        self.__on_hold = self.__get_my_animes(3)
-        self.__dropped = self.__get_my_animes(4)
-        self.__plan_to_read = self.__get_my_animes(6)
+        self._reading = self.__get_my_animes(1)
+        self._completed = self.__get_my_animes(2)
+        self._on_hold = self.__get_my_animes(3)
+        self._dropped = self.__get_my_animes(4)
+        self._plan_to_read = self.__get_my_animes(6)
+
+        self.map_of_lists[1] = self._reading
+        self.map_of_lists[2] = self._completed
+        self.map_of_lists[3] = self._on_hold
+        self.map_of_lists[4] = self._dropped
+        self.map_of_lists[6] = self._plan_to_read
+        self.map_of_lists["1"] = self._reading
+        self.map_of_lists["2"] = self._completed
+        self.map_of_lists["3"] = self._on_hold
+        self.map_of_lists["4"] = self._dropped
+        self.map_of_lists["6"] = self._plan_to_read
+        self.map_of_lists["reading"] = self._reading
+        self.map_of_lists["completed"] = self._completed
+        self.map_of_lists["onhold"] = self._on_hold
+        self.map_of_lists["dropped"] = self._dropped
+        self.map_of_lists["plantoread"] = self._plan_to_read
 
         self._is_loaded = True
 
     def __get_my_animes(self, status: int) -> frozenset:
-        import bs4
-
-        if self.__account.is_auth:
-            data = self.__account.auth_connect(self.__url + str(status))
-        else:
-            data = self.__account.connect(self.__url + str(status))
-        body = bs4.BeautifulSoup(data).body
-
-        main_div = body.find(name="div", attrs={"id": "list_surround"})
-        tables = main_div.findAll(name="table", reucrsive=False)
-        if len(tables) <= 4:
-            return frozenset()
-        rows = tables[3:-1]
-
-        return frozenset(map(self.__parse_obj_table, rows))
-
-    def __parse_obj_table(self, div):
-        from urllib import parse
-
         from pymal.account_objects.my_manga import MyManga as obj
 
-        links_div = div.findAll(name="td", recorsive=False)[1]
+        url = f"{HOST_NAME}/mangalist/{self.__account.username}/load.json?status={status}&offset=0"
+        try:
+            if self.__account.is_auth:
+                sock = self.__account.auth_connect(url)
+                import json
 
-        link = links_div.find(name="a", attrs={"class": "animetitle"})
-        link_id = int(link["href"].split("/")[2])
+                data = json.loads(sock)
+            else:
+                sock = global_functions._connect(url)
+                if sock.status_code != 200:
+                    return frozenset()
+                data = sock.json()
 
-        if self.__account.is_auth:
-            my_link = links_div.find(name="a", attrs={"class": "List_LightBox"})
-            _, query = parse.splitquery(my_link["href"])
-            my_link_id = int(parse.parse_qs(query)["id"][0])
-        else:
-            my_link_id = 0
-
-        return obj(link_id, my_link_id, self.__account)
+            mangas = set()
+            for item in data:
+                manga_id = item.get("manga_id")
+                if manga_id:
+                    mangas.add(obj(int(manga_id), 0, self.__account))
+            return frozenset(mangas)
+        except Exception:
+            return frozenset()
 
     def __repr__(self):
         return f"<User mangas' number is {len(self):d}>"

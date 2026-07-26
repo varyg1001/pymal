@@ -5,7 +5,7 @@ __contact__ = "Name Of Current Guardian of this file <email@address>"
 
 from urllib import request
 
-from pymal import decorators
+from pymal import decorators, global_functions
 from pymal.consts import HOST_NAME
 from pymal.types import ReloadedSet
 
@@ -34,28 +34,28 @@ class AccountAnimes(ReloadedSet.ReloadedSetSingletonFactory):
         self.__account = account
         self.__url = self.__URL.format(account.username)
 
-        self.__watching = frozenset()
-        self.__completed = frozenset()
-        self.__on_hold = frozenset()
-        self.__dropped = frozenset()
-        self.__plan_to_watch = frozenset()
+        self._watching = frozenset()
+        self._completed = frozenset()
+        self._on_hold = frozenset()
+        self._dropped = frozenset()
+        self._plan_to_watch = frozenset()
 
         self.map_of_lists = {
-            1: self.__watching,
-            2: self.__completed,
-            3: self.__on_hold,
-            4: self.__dropped,
-            6: self.__plan_to_watch,
-            "1": self.__watching,
-            "2": self.__completed,
-            "3": self.__on_hold,
-            "4": self.__dropped,
-            "6": self.__plan_to_watch,
-            "watching": self.__watching,
-            "completed": self.__completed,
-            "onhold": self.__on_hold,
-            "dropped": self.__dropped,
-            "plantowatch": self.__plan_to_watch,
+            1: self._watching,
+            2: self._completed,
+            3: self._on_hold,
+            4: self._dropped,
+            6: self._plan_to_watch,
+            "1": self._watching,
+            "2": self._completed,
+            "3": self._on_hold,
+            "4": self._dropped,
+            "6": self._plan_to_watch,
+            "watching": self._watching,
+            "completed": self._completed,
+            "onhold": self._on_hold,
+            "dropped": self._dropped,
+            "plantowatch": self._plan_to_watch,
         }
 
         self._is_loaded = False
@@ -67,7 +67,7 @@ class AccountAnimes(ReloadedSet.ReloadedSetSingletonFactory):
         :return: The watching list
         :rtype: frozenset
         """
-        return self.__watching
+        return self._watching
 
     @property
     @decorators.load
@@ -76,7 +76,7 @@ class AccountAnimes(ReloadedSet.ReloadedSetSingletonFactory):
         :return: The completed list
         :rtype: frozenset
         """
-        return self.__completed
+        return self._completed
 
     @property
     @decorators.load
@@ -85,7 +85,7 @@ class AccountAnimes(ReloadedSet.ReloadedSetSingletonFactory):
         :return: The on hold list
         :rtype: frozenset
         """
-        return self.__on_hold
+        return self._on_hold
 
     @property
     @decorators.load
@@ -94,7 +94,7 @@ class AccountAnimes(ReloadedSet.ReloadedSetSingletonFactory):
         :return: The dropped list
         :rtype: frozenset
         """
-        return self.__dropped
+        return self._dropped
 
     @property
     @decorators.load
@@ -103,7 +103,7 @@ class AccountAnimes(ReloadedSet.ReloadedSetSingletonFactory):
         :return: The plan to watch list
         :rtype: frozenset
         """
-        return self.__plan_to_watch
+        return self._plan_to_watch
 
     @property
     def _values(self) -> frozenset:
@@ -123,49 +123,51 @@ class AccountAnimes(ReloadedSet.ReloadedSetSingletonFactory):
         """
         reloading data from MAL.
         """
-        self.__watching = self.__get_my_animes(1)
-        self.__completed = self.__get_my_animes(2)
-        self.__on_hold = self.__get_my_animes(3)
-        self.__dropped = self.__get_my_animes(4)
-        self.__plan_to_watch = self.__get_my_animes(6)
+        self._watching = self.__get_my_animes(1)
+        self._completed = self.__get_my_animes(2)
+        self._on_hold = self.__get_my_animes(3)
+        self._dropped = self.__get_my_animes(4)
+        self._plan_to_watch = self.__get_my_animes(6)
+
+        self.map_of_lists[1] = self._watching
+        self.map_of_lists[2] = self._completed
+        self.map_of_lists[3] = self._on_hold
+        self.map_of_lists[4] = self._dropped
+        self.map_of_lists[6] = self._plan_to_watch
+        self.map_of_lists["1"] = self._watching
+        self.map_of_lists["2"] = self._completed
+        self.map_of_lists["3"] = self._on_hold
+        self.map_of_lists["4"] = self._dropped
+        self.map_of_lists["6"] = self._plan_to_watch
+        self.map_of_lists["watching"] = self._watching
+        self.map_of_lists["completed"] = self._completed
+        self.map_of_lists["onhold"] = self._on_hold
+        self.map_of_lists["dropped"] = self._dropped
+        self.map_of_lists["plantowatch"] = self._plan_to_watch
 
         self._is_loaded = True
 
     def __get_my_animes(self, status: int) -> frozenset:
-        import bs4
-
-        if self.__account.is_auth:
-            data = self.__account.auth_connect(self.__url + str(status))
-        else:
-            data = self.__account.connect(self.__url + str(status))
-        body = bs4.BeautifulSoup(data).body
-
-        main_div = body.find(name="div", attrs={"id": "list_surround"})
-        tables = main_div.findAll(name="table", reucrsive=False)
-        if len(tables) <= 4:
-            return frozenset()
-        rows = tables[3:-1]
-
-        return frozenset(map(self.__parse_obj_table, rows))
-
-    def __parse_obj_table(self, div):
-        from urllib import parse
-
         from pymal.account_objects.my_anime import MyAnime as obj
 
-        links_div = div.findAll(name="td", recorsive=False)[1]
-
-        link = links_div.find(name="a", attrs={"class": "animetitle"})
-        link_id = int(link["href"].split("/")[2])
-
+        url = f"{HOST_NAME}/animelist/{self.__account.username}/load.json?status={status}&offset=0"
         if self.__account.is_auth:
-            my_link = links_div.find(name="a", attrs={"class": "List_LightBox"})
-            _, query = parse.splitquery(my_link["href"])
-            my_link_id = int(parse.parse_qs(query)["id"][0])
-        else:
-            my_link_id = 0
+            sock = self.__account.auth_connect(url)
+            import json
 
-        return obj(link_id, my_link_id, self.__account)
+            data = json.loads(sock)
+        else:
+            sock = global_functions._connect(url)
+            if sock.status_code != 200:
+                return frozenset()
+            data = sock.json()
+
+        animes = set()
+        for item in data:
+            anime_id = item.get("anime_id")
+            if anime_id:
+                animes.add(obj(int(anime_id), 0, self.__account))
+        return frozenset(animes)
 
     def __repr__(self):
         return f"<User animes' number is {len(self):d}>"
