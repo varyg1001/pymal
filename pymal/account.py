@@ -190,7 +190,7 @@ class Account(metaclass=singleton_factory.SingletonFactory):
         return True
 
     def auth_connect(
-        self, url: str, data: str or None = None, headers: dict or None = None
+        self, url: str, data: str | None = None, headers: dict | None = None
     ) -> str:
         """
         :param url: The url to get.

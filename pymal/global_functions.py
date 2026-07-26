@@ -46,8 +46,8 @@ def url_fixer(url: str) -> str:
 
 def _connect(
     url: str,
-    data: str = None,
-    headers: dict or None = None,
+    data: str | None = None,
+    headers: dict | None = None,
     auth=None,
     session: niquests.Session = __SESSION,
 ) -> niquests.Response:
@@ -79,7 +79,9 @@ def _connect(
     return sock
 
 
-def connect(url: str, data: str = None, headers: dict or None = None, auth=None) -> str:
+def connect(
+    url: str, data: str | None = None, headers: dict | None = None, auth=None
+) -> str:
     """
     :param url: url
     :param data: data to post
@@ -212,7 +214,7 @@ def make_time(time_string: str) -> int:
     return time.mktime(start_time)
 
 
-def make_counter(counter_string: str) -> int or float:
+def make_counter(counter_string: str) -> int | float:
     """
     getting mal site counter string format and return it as int
     """
