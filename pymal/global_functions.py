@@ -181,23 +181,29 @@ def make_start_and_end_time(start_and_end_string: str) -> tuple:
     return make_time(start_time), make_time(end_time)
 
 
-def make_time(time_string: str) -> int:
+def make_time(time_string: str) -> float | int:
     """
-    getting mal site time string format and return it as int
+    getting mal site time string format and return it as int/float
     """
-    if time_string == "?" or time_string == consts.MALAPPINFO_NONE_TIME:
+    if (
+        not time_string
+        or time_string == "?"
+        or time_string == consts.MALAPPINFO_NONE_TIME
+        or time_string.lower() in ("not available", "n/a", "unknown", "none")
+    ):
         return float("inf")
     if time_string.isdigit():
         return int(time_string)
-    try:
-        start_time = time.strptime(time_string, consts.SHORT_SITE_FORMAT_TIME)
-    except ValueError:
+    for fmt in (consts.SHORT_SITE_FORMAT_TIME, consts.LONG_SITE_FORMAT_TIME):
         try:
-            start_time = time.strptime(time_string, consts.LONG_SITE_FORMAT_TIME)
+            return time.mktime(time.strptime(time_string, fmt))
         except ValueError:
-            time_string = time_string[:4] + time_string[4:].replace("00", "01")
-            start_time = time.strptime(time_string, consts.MALAPPINFO_FORMAT_TIME)
-    return time.mktime(start_time)
+            pass
+    try:
+        ts = time_string[:4] + time_string[4:].replace("00", "01")
+        return time.mktime(time.strptime(ts, consts.MALAPPINFO_FORMAT_TIME))
+    except ValueError:
+        return float("inf")
 
 
 def make_counter(counter_string: str) -> int | float:

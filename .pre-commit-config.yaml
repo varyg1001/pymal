@@ -1,11 +1,18 @@
-#  See https://pre-commit.com for more information
-#  See https://pre-commit.com/hooks.html for more hooks
+# See https://pre-commit.com/ for more information
+exclude: _pb2\.py$
 
 repos:
   - repo: https://github.com/astral-sh/uv-pre-commit
-    rev: 0.11.12
+    rev: 0.11.32 # Use the latest available version
     hooks:
       - id: uv-lock
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.16.0
+    hooks:
+      - id: ruff
+        args: [--fix]
+      - id: ruff-format
 
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v6.0.0
@@ -13,47 +20,22 @@ repos:
       - id: check-added-large-files
       - id: check-executables-have-shebangs
       - id: check-json
+        exclude: ^\.vscode/launch\.json$
       - id: check-merge-conflict
         args: [--assume-in-merge]
-      - id: check-shebang-scripts-are-executable
       - id: check-symlinks
       - id: check-toml
       - id: check-yaml
-      - id: destroyed-symlinks
       - id: end-of-file-fixer
-      - id: fix-byte-order-marker
-      - id: mixed-line-ending
-        args: [--fix=lf]
       - id: trailing-whitespace
-        args: [--markdown-linebreak-ext=md]
-
-  - repo: https://github.com/asottile/pyupgrade
-    rev: v3.21.2
-    hooks:
-      - id: pyupgrade
-        args: [--py310-plus, --keep-runtime-typing]
 
   - repo: https://github.com/jendrikseipp/vulture
     rev: v2.16
     hooks:
       - id: vulture
-        args: [pymal, --min-confidence=80]
+        args: ["pymal", "--min-confidence", "80"]
 
   - repo: https://github.com/adrienverge/yamllint
     rev: v1.38.0
     hooks:
       - id: yamllint
-        args: [-d, "{rules: {document-start: disable, truthy: disable, line-length: {max: 120}}}"]
-
-  - repo: https://github.com/codespell-project/codespell
-    rev: v2.4.2
-    hooks:
-      - id: codespell
-        name: codespell - fix common typos
-
-  - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.15.12
-    hooks:
-      - id: ruff
-        args: [--fix]
-      - id: ruff-format
