@@ -29,7 +29,8 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/varyg1001/pymal"
+Homepage = "https://varyg1001.github.io/pymal/"
+Documentation = "https://varyg1001.github.io/pymal/"
 Source = "https://github.com/varyg1001/pymal"
 Upstream = "https://github.com/pymal-developers/pymal"
 
