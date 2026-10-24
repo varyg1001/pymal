@@ -1,31 +1,69 @@
-name: Publish to PyPI
+name: Publish to PyPI and GitHub Release
 
 on:
   workflow_dispatch:
+
+concurrency:
+  group: release
+  cancel-in-progress: false
 
 permissions:
   contents: read
 
 jobs:
-  publish:
-    runs-on: ubuntu-latest
-    environment: pypi
-    permissions:
-      contents: read
-      id-token: write
+  dist:
+    runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.meta.outputs.version }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - name: Install uv
-        uses: astral-sh/setup-uv@v4
+      - uses: astral-sh/setup-uv@v10.3.2
 
-      - name: Build
-        run: uv build
+      - name: Read version
+        id: meta
+        run: |
+          version=$(python3 -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])")
+          [ -n "$version" ] || { echo "Could not read version from pyproject.toml"; exit 1; }
+          echo "version=$version" >> "$GITHUB_OUTPUT"
 
-      - name: Check
-        run: uvx twine check dist/*
+      - name: Test
+        run: uv run pytest -q
 
-      - name: Publish
+      - name: Build sdist and wheel
+        run: |
+          uv build
+          uvx twine check dist/*
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: dist
+          path: dist/
+
+  release:
+    # Only runs once the tests passed and the package built and passed its checks
+    needs: dist
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+      id-token: write  # PyPI trusted publishing, no token secret needed
+    env:
+      GH_TOKEN: ${{ github.token }}
+      VERSION: ${{ needs.dist.outputs.version }}
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: dist
+          path: dist
+
+      - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
-          password: ${{ secrets.PYPI_API_TOKEN }}
+          skip-existing: true
+
+      - name: Create GitHub release
+        run: |
+          gh release view "$VERSION" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 \
+            || gh release create "$VERSION" --repo "$GITHUB_REPOSITORY" \
+                 --title "$VERSION" --target "$GITHUB_SHA" --generate-notes
+          gh release upload "$VERSION" --repo "$GITHUB_REPOSITORY" --clobber dist/*
