@@ -1,7 +1,7 @@
-__authors__ = ""
-__copyright__ = "(c) 2014, pymal"
+__authors__ = "tomer gelber, Aur Saraf, varyg"
+__copyright__ = "(c) 2014, tomergelber; (c) 2026, varyg"
 __license__ = "BSD License"
-__contact__ = "Name Of Current Guardian of this file <email@address>"
+__contact__ = "https://github.com/varyg1001/pymal"
 
 import collections.abc
 
@@ -48,33 +48,15 @@ class ReloadedSet(collections.abc.Set):
         return self.union(other)
 
     def intersection(self, *others) -> frozenset:
-        other_lists = map(list, list(others) + [list(self)])
-
-        def in_all(x):
-            return all(x in lst for lst in other_lists)
-
-        import itertools
-
-        other_union_lists = itertools.chain(other_lists)
-        items_in_all = filter(in_all, other_union_lists)
-
-        res = []
-
-        for item in items_in_all:
-            if item not in res:
-                res.append(item)
-
-        return frozenset(res)
+        other_lists = [list(other) for other in others]
+        return frozenset(x for x in self if all(x in lst for lst in other_lists))
 
     def __and__(self, other) -> frozenset:
         return self.intersection(other)
 
     def difference(self, *others) -> frozenset:
-        import itertools
-
-        other_lists = map(list, others)
-        other_union_lists = itertools.chain(other_lists)
-        return frozenset(filter(lambda x: x not in other_union_lists, self))
+        other_lists = [list(other) for other in others]
+        return frozenset(x for x in self if not any(x in lst for lst in other_lists))
 
     def __sub__(self, other) -> frozenset:
         return self.difference(other)

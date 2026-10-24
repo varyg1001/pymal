@@ -1,7 +1,7 @@
-__authors__ = ""
-__copyright__ = "(c) 2014, pymal"
+__authors__ = "tomer gelber, Aur Saraf, varyg"
+__copyright__ = "(c) 2014, tomergelber; (c) 2026, varyg"
 __license__ = "BSD License"
-__contact__ = "Name Of Current Guardian of this file <email@address>"
+__contact__ = "https://github.com/varyg1001/pymal"
 
 from pymal import account as account_module
 from pymal.searches import search_provider
@@ -16,7 +16,12 @@ class SearchAccountsProvider(search_provider.SearchProvider):
     """
 
     _SEARCH_NAME = "users"
+    _PREFIX_TYPE = "user"
     _SEARCHED_URL_SUFFIX = "/profile/"
+
+    @staticmethod
+    def _prefix_key(item: dict) -> str | None:
+        return item.get("name")
 
     def _SEARCHED_OBJECT(self, mal_url: str):
 

@@ -1,12 +1,10 @@
-__authors__ = ""
-__copyright__ = "(c) 2014, pymal"
+__authors__ = "tomer gelber, Aur Saraf, varyg"
+__copyright__ = "(c) 2014, tomergelber; (c) 2026, varyg"
 __license__ = "BSD License"
-__contact__ = "Name Of Current Guardian of this file <email@address>"
+__contact__ = "https://github.com/varyg1001/pymal"
 
 from urllib import request
 
-import bs4
-import niquests
 import singleton_factory
 
 from pymal import consts, decorators, global_functions
@@ -22,7 +20,7 @@ class Anime(metaclass=singleton_factory.SingletonFactory):
     :ivar image_url: :class:`str`
     :ivar title: :class:`str`
     :ivar english: :class:`str`
-    :ivar synonyms: :class:`str`
+    :ivar synonyms: :class:`list` of :class:`str`
     :ivar japanese: :class:`str`
     :ivar type: :class:`str`
     :ivar status: :class:`int`
@@ -70,10 +68,10 @@ class Anime(metaclass=singleton_factory.SingletonFactory):
         self.__title = ""
         self.__image_url = ""
         self.__english = ""
-        self.__synonyms = ""
+        self.__synonyms = []
         self.__japanese = ""
         self.__type = ""
-        self.__status = 0
+        self.__status = ""
         self.__start_time = 0
         self.__end_time = 0
         self.__creators = {}
@@ -103,6 +101,9 @@ class Anime(metaclass=singleton_factory.SingletonFactory):
         self.__parent_stories = set()
         self.__alternative_settings = set()
         self.__full_stories = set()
+
+        self.__reviews = None
+        self.__recommendations = None
 
         self.related_str_to_set_dict = {
             "Adaptation:": self.__adaptations,
@@ -146,7 +147,7 @@ class Anime(metaclass=singleton_factory.SingletonFactory):
 
         from PIL import Image
 
-        sock = niquests.get(self.image_url)
+        sock = global_functions._connect(self.image_url)
         data = io.BytesIO(sock.content)
         return Image.open(data)
 
@@ -157,8 +158,8 @@ class Anime(metaclass=singleton_factory.SingletonFactory):
 
     @property
     @decorators.load
-    def synonyms(self) -> str:
-        return self.__synonyms
+    def synonyms(self) -> list:
+        return list(self.__synonyms)
 
     @property
     @decorators.load
@@ -172,17 +173,17 @@ class Anime(metaclass=singleton_factory.SingletonFactory):
 
     @property
     @decorators.load
-    def status(self) -> int:
+    def status(self) -> str:
         return self.__status
 
     @property
     @decorators.load
-    def start_time(self) -> int:
+    def start_time(self) -> float | int:
         return self.__start_time
 
     @property
     @decorators.load
-    def end_time(self) -> int:
+    def end_time(self) -> float | int:
         return self.__end_time
 
     @property
@@ -283,13 +284,22 @@ class Anime(metaclass=singleton_factory.SingletonFactory):
 
     @property
     @decorators.load
-    def rating(self) -> int:
+    def rating(self) -> str:
         return self.__rating
 
     @property
     @decorators.load
     def episodes(self) -> int:
         return self.__episodes
+
+    @staticmethod
+    def __clean_title(title_span, h1) -> str:
+        """The title without the English title that MAL puts inside the same tag."""
+        if title_span is None:
+            return h1.contents[0].strip()
+        name = title_span.find(attrs={"itemprop": "name"}) or title_span
+        first = name.find(string=True, recursive=False)
+        return (first or name.get_text()).strip()
 
     def reload(self):
         """
@@ -310,9 +320,7 @@ class Anime(metaclass=singleton_factory.SingletonFactory):
             or h1.find("span", attrs={"itemprop": "name"})
             or h1.find("strong")
         )
-        self.__title = (
-            title_span.get_text(strip=True) if title_span else h1.contents[0].strip()
-        )
+        self.__title = self.__clean_title(title_span, h1)
 
         # Getting content <div>
         content_div = content_wrapper_div.find(name="div", attrs={"id": "content"})
@@ -340,7 +348,7 @@ class Anime(metaclass=singleton_factory.SingletonFactory):
 
         # Reset all sidebar fields before label-based lookup
         self.__english = ""
-        self.__synonyms = ""
+        self.__synonyms = []
         self.__japanese = ""
         self.__type = ""
         self.__episodes = 0
@@ -370,7 +378,7 @@ class Anime(metaclass=singleton_factory.SingletonFactory):
             if label == "English":
                 self.__english = value
             elif label == "Synonyms":
-                self.__synonyms = value
+                self.__synonyms = [x.strip() for x in value.split(",") if x.strip()]
             elif label == "Japanese":
                 self.__japanese = value
             elif label == "Type":
@@ -403,215 +411,82 @@ class Anime(metaclass=singleton_factory.SingletonFactory):
                             self.__duration += number * 60
             elif label == "Rating":
                 self.__rating = value
-            elif label == "Score":
-                try:
-                    self.__score = float(value.split()[0])
-                except (ValueError, IndexError):
-                    self.__score = 0.0
-            elif label == "Ranked":
-                rank_str = value.lstrip("#").split()[0]
-                try:
-                    self.__rank = int(rank_str)
-                except ValueError:
-                    self.__rank = 0
-            elif label == "Popularity":
-                pop_str = value.lstrip("#").split()[0]
-                try:
-                    self.__popularity = int(pop_str)
-                except ValueError:
-                    self.__popularity = 0
+
+        self.__score, self.__rank, self.__popularity = (
+            global_functions.parse_header_stats(content_wrapper_div)
+        )
+
+        related = global_functions.parse_related_entries(content_wrapper_div)
+        for label, target in self.related_str_to_set_dict.items():
+            target.clear()
+            target.update(related.get(label.rstrip(":").lower(), ()))
 
         # Data from main content
         main_content = contents[1]
         rightside = main_content.find("div", class_="rightside") or main_content
 
-        # Getting synopsis from modern layout <p itemprop="description"> or fallback h2
-        synopsis_p = rightside.find("p", itemprop="description")
-        if synopsis_p:
-            self.__synopsis = synopsis_p.get_text().strip()
-        else:
-            synopsis_h2 = rightside.find(
-                lambda tag: tag.name == "h2" and "Synopsis" in tag.get_text()
-            )
-            if synopsis_h2 and synopsis_h2.parent:
-                self.__synopsis = synopsis_h2.parent.get_text(strip=True)
-            else:
-                self.__synopsis = ""
+        # Getting synopsis (a <p> or <span> with itemprop="description")
+        synopsis_tag = rightside.find(attrs={"itemprop": "description"})
+        self.__synopsis = synopsis_tag.get_text().strip() if synopsis_tag else ""
 
-        reviews_tag = rightside.find(string="More reviews")
-        if (
-            reviews_tag is not None
-            and reviews_tag.parent
-            and "href" in reviews_tag.parent.attrs
-        ):
-            link_for_reviews = request.urljoin(
-                consts.HOST_NAME, reviews_tag.parent["href"]
-            )
-            self.__parse_reviews(link_for_reviews)
-
-        recommendations_tag = rightside.find(string="More recommendations")
-        if (
-            recommendations_tag is not None
-            and recommendations_tag.parent
-            and "href" in recommendations_tag.parent.attrs
-        ):
-            link_for_recommendations = request.urljoin(
-                consts.HOST_NAME, recommendations_tag.parent["href"]
-            )
-            self.__parse_recommendations(link_for_recommendations)
+        # Reviews and recommendations are separate pages: only fetched when asked for.
+        self.__reviews = None
+        self.__recommendations = None
 
         self._is_loaded = True
 
-    def __parse_reviews(self, link_for_reviews: str):
-        from pymal.inner_objects import review
+    @property
+    @decorators.load
+    def reviews(self) -> frozenset:
+        """
+        :return: the reviews of the first page of reviews; fetched on first use.
+        :rtype: frozenset of :class:`inner_objects.review.Review`
+        """
+        if self.__reviews is None:
+            # MAL needs a slug segment in the address; any text works
+            from pymal.inner_objects import review
 
-        try:
-            content_wrapper_div = global_functions.get_content_wrapper_div(
-                link_for_reviews, global_functions.connect
+            div = global_functions.get_content_wrapper_div(
+                f"{self.__mal_url}/_/reviews", global_functions.connect
             )
-            content_div = content_wrapper_div.find(name="div", attrs={"id": "content"})
-            tr = (
-                content_div.table.find("tr")
-                if content_div and content_div.table
-                else None
+            self.__reviews = frozenset(
+                map(review.Review, div.select("div.review-element"))
             )
-            if not tr:
-                self.reviews = frozenset()
-                return
-            tds = tr.find_all(name="td", recursive=False)
-            if len(tds) < 2:
-                self.reviews = frozenset()
-                return
-            main_cell = tds[1]
-            divs = main_cell.find_all(name="div", recursive=False)
-            if len(divs) < 2:
-                self.reviews = frozenset()
-                return
-            reviews_data_div = divs[1]
-            reviews_data = reviews_data_div.find_all(name="div", recursive=False)[2:-2]
-            self.reviews = frozenset(map(review.Review, reviews_data))
-        except Exception:
-            self.reviews = frozenset()
-
-    def __parse_recommendations(self, link_for_recommendations: str):
-        from pymal.inner_objects import recommendation
-
-        try:
-            content_wrapper_div = global_functions.get_content_wrapper_div(
-                link_for_recommendations, global_functions.connect
-            )
-            content_div = content_wrapper_div.find(name="div", attrs={"id": "content"})
-            tr = (
-                content_div.table.find("tr")
-                if content_div and content_div.table
-                else None
-            )
-            if not tr:
-                self.recommendations = frozenset()
-                return
-            tds = tr.find_all(name="td", recursive=False)
-            if len(tds) < 2:
-                self.recommendations = frozenset()
-                return
-            main_cell = tds[1]
-            divs = main_cell.find_all(name="div", recursive=False)
-            if len(divs) < 2:
-                self.recommendations = frozenset()
-                return
-            recommendations_data_div = divs[1]
-            recommendations_data = recommendations_data_div.find_all(
-                name="div", recursive=False
-            )[2:-1]
-            self.recommendations = frozenset(
-                map(recommendation.Recommendation, recommendations_data)
-            )
-        except Exception:
-            self.recommendations = frozenset()
+        return self.__reviews
 
     @property
-    def MY_MAL_XML_TEMPLATE(self) -> str:
-        return """<?xml version="1.0" encoding="UTF-8"?>
-<entry>
-    <episode>{0:d}</episode>
-    <status>{1:d}</status>
-    <score>{2:d}</score>
-    <downloaded_episodes>{3:d}</downloaded_episodes>
-    <storage_type>{4:d}</storage_type>
-    <storage_value>{5:f}</storage_value>
-    <times_rewatched>{6:d}</times_rewatched>
-    <rewatch_value>{7:d}</rewatch_value>
-    <date_start>{8:s}</date_start>
-    <date_finish>{9:s}</date_finish>
-    <priority>{10:d}</priority>
-    <enable_discussion>{11:d}</enable_discussion>
-    <enable_rewatching>{12:d}</enable_rewatching>
-    <comments>{13:s}</comments>
-    <fansub_group>{14:s}</fansub_group>
-    <tags>{15:s}</tags>
-</entry>"""
+    @decorators.load
+    def recommendations(self) -> frozenset:
+        """
+        :return: the recommendations of the first page; fetched on first use.
+        :rtype: frozenset of :class:`inner_objects.recommendation.Recommendation`
+        """
+        if self.__recommendations is None:
+            from pymal.inner_objects import recommendation
+
+            div = global_functions.get_content_wrapper_div(
+                f"{self.__mal_url}/_/userrecs", global_functions.connect
+            )
+            blocks = [
+                t.parent
+                for t in div.select("div.borderClass > table")
+                if t.select_one(".picSurround")
+            ]
+            self.__recommendations = frozenset(map(recommendation.Recommendation, blocks))
+        return self.__recommendations
 
     def add(self, account):
         """
+        Adding this anime to the list of an account (as "plan to"), unless it is there.
+
         :param account: the account to add him self anime.
         :type account: :class:`account.Account`
         :rtype: :class:`account_objects.my_anime.MyAnime`
         :exception exceptions.MyAnimeListApiAddError: when failed.
         """
-        from pymal import exceptions
-
-        data = self.MY_MAL_XML_TEMPLATE.format(
-            0,
-            6,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            consts.MALAPI_NONE_TIME,
-            consts.MALAPI_NONE_TIME,
-            0,
-            False,
-            False,
-            "",
-            "",
-            "",
-        )
-        xml = "".join(x.strip() for x in data.splitlines())
-        delete_url = self.__MY_MAL_ADD_URL.format(self.id)
-        ret = account.auth_connect(
-            delete_url,
-            data="data=" + xml,
-            headers={"Content-Type": "application/x-www-form-urlencoded"},
-        )
-        try:
-            html_obj = bs4.BeautifulSoup(ret)
-            if html_obj is None:
-                raise exceptions.FailedToAddError(html_obj)
-
-            head_obj = html_obj.head
-            if head_obj is None:
-                raise exceptions.FailedToAddError(head_obj)
-
-            title_obj = head_obj.title
-            if title_obj is None:
-                raise exceptions.FailedToAddError(title_obj)
-
-            data = title_obj.text
-            if data is None:
-                raise exceptions.FailedToAddError(data)
-
-            my_id, string = data.split()
-            if not my_id.isdigit():
-                raise exceptions.FailedToAddError(my_id)
-            if string != "Created":
-                raise exceptions.FailedToAddError(string)
-        except exceptions.FailedToAddError as err:
-            raise exceptions.MyAnimeListApiAddError(ret) from err
-
         from pymal.account_objects import my_anime
 
-        return my_anime.MyAnime(self, my_id, account)
+        return my_anime.MyAnime(self, account).add(account)
 
     def __eq__(self, other):
         if isinstance(other, Anime):

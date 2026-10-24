@@ -42,6 +42,7 @@ def _make_content_wrapper(
     popularity="#24",
     image_src="https://cdn.myanimelist.net/images/anime/1015/138006.jpg",
     synopsis="After the party of heroes defeated the Demon King...",
+    related="",
 ):
     """
     Build a minimal contentWrapper div that mirrors the current MAL layout:
@@ -83,9 +84,6 @@ def _make_content_wrapper(
         {_meta("Genres", genre_links)}
         {_meta("Duration", duration)}
         {_meta("Rating", rating)}
-        {_meta("Score", score)}
-        {_meta("Ranked", ranked)}
-        {_meta("Popularity", popularity)}
     </div>
     """
 
@@ -113,11 +111,17 @@ def _make_content_wrapper(
             </tbody>
         </table>
     </div>
+    <div class="related-entries"><div class="entries-tile">{related}</div></div>
     """
 
     html = f"""
     <div id="contentWrapper">
         <h1 class="title-name h1_bold_none"><strong>{title}</strong></h1>
+        <div class="stats-block">
+            <div class="score-label score-9">{score}</div>
+            <span class="numbers ranked">Ranked <strong>{ranked}</strong></span>
+            <span class="numbers popularity">Popularity <strong>{popularity}</strong></span>
+        </div>
         <div id="content">
             <table>
                 <tr>
@@ -141,7 +145,6 @@ def _make_anime_instance(mal_id=52991):
         "__title",
         "__image_url",
         "__english",
-        "__synonyms",
         "__japanese",
         "__type",
         "__status",
@@ -159,32 +162,34 @@ def _make_anime_instance(mal_id=52991):
     ]:
         setattr(anm, f"_Anime{attr}", 0)
     anm._Anime__score = 0.0
+    anm._Anime__synonyms = []
     anm._Anime__creators = {}
     anm._Anime__genres = {}
-    anm.related_str_to_set_dict = {
-        "Adaptation:": set(),
-        "Character:": set(),
-        "Sequel:": set(),
-        "Prequel:": set(),
-        "Spin-off:": set(),
-        "Alternative version:": set(),
-        "Side story:": set(),
-        "Summary:": set(),
-        "Other:": set(),
-        "Parent story:": set(),
-        "Alternative setting:": set(),
-        "Full story:": set(),
+    names = {
+        "Adaptation:": "adaptations",
+        "Character:": "characters",
+        "Sequel:": "sequels",
+        "Prequel:": "prequels",
+        "Spin-off:": "spin_offs",
+        "Alternative version:": "alternative_versions",
+        "Side story:": "side_stories",
+        "Summary:": "summaries",
+        "Other:": "others",
+        "Parent story:": "parent_stories",
+        "Alternative setting:": "alternative_settings",
+        "Full story:": "full_stories",
     }
+    anm.related_str_to_set_dict = {}
+    for label, name in names.items():
+        related_set = set()
+        setattr(anm, f"_Anime__{name}", related_set)
+        anm.related_str_to_set_dict[label] = related_set
     return anm
 
 
 def _reload(anm, cwd):
-    """Run reload() with get_content_wrapper_div mocked and review/rec skipped."""
-    with (
-        patch.object(global_functions, "get_content_wrapper_div", return_value=cwd),
-        patch.object(anm, "_Anime__parse_reviews", return_value=None),
-        patch.object(anm, "_Anime__parse_recommendations", return_value=None),
-    ):
+    """Run reload() with get_content_wrapper_div mocked."""
+    with patch.object(global_functions, "get_content_wrapper_div", return_value=cwd):
         anm.reload()
 
 
@@ -304,6 +309,38 @@ class TestNoTbody(unittest.TestCase):
 # ---------------------------------------------------------------------------
 
 
+class TestLazyReviewsAndRecommendations(unittest.TestCase):
+    """Loading a title is one request; reviews/recommendations are fetched when asked."""
+
+    def test_extra_pages_only_on_demand(self):
+        anm = _make_anime_instance(52991)
+        cwd = _make_content_wrapper()
+        extra = bs4.BeautifulSoup(
+            '<div id="main"><a href="/anime/52991/x/reviews">More reviews</a>'
+            '<a href="/anime/52991/x/userrecs">More recommendations</a></div>',
+            "lxml",
+        ).find(id="main")
+        cwd.find_all("td")[1].append(extra)
+        pages = []
+
+        def fake_page(url, _connect):
+            pages.append(url)
+            return (
+                cwd if len(pages) == 1 else bs4.BeautifulSoup("<div></div>", "lxml").div
+            )
+
+        with patch.object(global_functions, "get_content_wrapper_div", fake_page):
+            self.assertEqual(anm.title, "Sousou no Frieren")
+            self.assertEqual(len(pages), 1)  # only the title page
+            self.assertEqual(anm.recommendations, frozenset())
+            self.assertEqual(len(pages), 2)
+            self.assertTrue(pages[1].endswith("/userrecs"))
+            anm.recommendations  # noqa: B018 - cached: no new request
+            self.assertEqual(len(pages), 2)
+            self.assertEqual(anm.reviews, frozenset())
+            self.assertEqual(len(pages), 3)
+
+
 class TestAnimeReloadSidebar(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -326,8 +363,23 @@ class TestAnimeReloadSidebar(unittest.TestCase):
             popularity="#24",
             image_src="https://cdn.myanimelist.net/images/anime/1015/138006.jpg",
             synopsis="After the party of heroes defeated the Demon King...",
+            related=(
+                '<div class="entry"><div class="content">'
+                '<div class="relation">Sequel (TV)</div>'
+                '<div class="title"><a href="https://myanimelist.net/anime/59978/X">X</a></div>'
+                "</div></div>"
+                '<div class="entry"><div class="content">'
+                '<div class="relation">Adaptation (Manga)</div>'
+                '<div class="title"><a href="https://myanimelist.net/manga/126287/Y">Y</a></div>'
+                "</div></div>"
+            ),
         )
         _reload(cls.anm, cwd)
+
+    def test_related_entries(self):
+        self.assertEqual({x.id for x in self.anm.sequels}, {59978})
+        self.assertEqual({x.id for x in self.anm.adaptations}, {126287})
+        self.assertEqual(self.anm.prequels, frozenset())
 
     def test_title(self):
         self.assertEqual(self.anm._Anime__title, "Sousou no Frieren")
@@ -339,7 +391,7 @@ class TestAnimeReloadSidebar(unittest.TestCase):
         self.assertEqual(self.anm._Anime__english, "Frieren: Beyond Journey's End")
 
     def test_synonyms(self):
-        self.assertEqual(self.anm._Anime__synonyms, "Frieren")
+        self.assertEqual(self.anm.synonyms, ["Frieren"])
 
     def test_japanese(self):
         self.assertEqual(self.anm._Anime__japanese, "葬送のフリーレン")
@@ -388,7 +440,7 @@ class TestAnimeReloadMissingOptionalFields(unittest.TestCase):
         cwd = _make_content_wrapper(english="", synonyms="")
         _reload(anm, cwd)
         self.assertEqual(anm._Anime__english, "")
-        self.assertEqual(anm._Anime__synonyms, "")
+        self.assertEqual(anm.synonyms, [])
 
 
 # ---------------------------------------------------------------------------
@@ -410,13 +462,6 @@ class TestNiquestsImport(unittest.TestCase):
 
     def test_global_functions(self):
         self._check("pymal.global_functions")
-
-    def test_anime(self):
-        self._check("pymal.anime")
-
-    def test_manga(self):
-        self._check("pymal.manga")
-
 
 
 # ---------------------------------------------------------------------------
@@ -481,3 +526,159 @@ class TestAnimeObject(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+# ---------------------------------------------------------------------------
+# Reviews, recommendations and related entries (current MAL markup)
+# ---------------------------------------------------------------------------
+
+REVIEW_HTML = """
+<div class="review-element js-review-element" data-reactions='{"num":42,"count":["40","2"]}'>
+  <div class="thumbbody"><div class="body">
+    <div class="update_at">Jan 25, 2010</div>
+    <div class="username"><a href="https://myanimelist.net/profile/tazillo">tazillo</a></div>
+    <div class="tags"><div class="tag recommended">Recommended</div></div>
+    <div class="text">First line.<br/><br/><br/><br/>Second <span class="js-visible">...</span>
+      <span class="js-hidden">line.</span></div>
+    <div class="rating"><span class="num">9</span></div>
+  </div></div>
+</div>
+"""
+
+RECOMMENDATION_HTML = """
+<div class="borderClass"><table><tr>
+  <td><div class="picSurround"><a href="https://myanimelist.net/anime/11061/Hunter">x</a></div></td>
+  <td>
+    <div class="borderClass bgColor1">
+      <div class="spaceit_pad detail-user-recs-text">Both are great.</div>
+      <div class="spaceit_pad">Recommended by <a href="https://myanimelist.net/profile/rinel">rinel</a></div>
+    </div>
+    <div><div class="borderClass bgColor2">
+      <div class="spaceit_pad detail-user-recs-text">Same studio.</div>
+      <div class="spaceit_pad">Recommended by <a href="https://myanimelist.net/profile/Seyfert">Seyfert</a></div>
+    </div></div>
+  </td>
+</tr></table></div>
+"""
+
+
+class TestReviewAndRecommendation(unittest.TestCase):
+    def test_review(self):
+        from pymal.inner_objects import review
+
+        div = bs4.BeautifulSoup(REVIEW_HTML, "lxml").select_one("div.review-element")
+        rev = review.Review(div)
+        self.assertEqual(rev.account.username, "tazillo")
+        self.assertEqual((rev.date, rev.helpful, rev.rating), ("Jan 25, 2010", 42, 9))
+        self.assertEqual(rev.tags, ("Recommended",))
+        self.assertEqual(rev.data, "First line.\n\nSecond line.")
+        self.assertIn("tazillo", repr(rev))
+
+    def test_review_without_a_rating(self):
+        from pymal.inner_objects import review
+
+        html = REVIEW_HTML.replace(
+            '<div class="rating"><span class="num">9</span></div>', ""
+        )
+        rev = review.Review(
+            bs4.BeautifulSoup(html, "lxml").select_one("div.review-element")
+        )
+        self.assertEqual(rev.rating, 0)
+
+    def test_review_that_is_not_a_review(self):
+        from pymal import exceptions
+        from pymal.inner_objects import review
+
+        with self.assertRaises(exceptions.FailedToParseError):
+            review.Review(bs4.BeautifulSoup("<div class='x'></div>", "lxml").div)
+
+    def test_recommendation(self):
+        from pymal.inner_objects import recommendation
+
+        div = bs4.BeautifulSoup(RECOMMENDATION_HTML, "lxml").select_one("div.borderClass")
+        rec = recommendation.Recommendation(div)
+        self.assertEqual(rec.recommended.id, 11061)
+        self.assertIs(rec.recommended_anime, rec.recommended)
+        self.assertEqual(
+            {account.username: text for account, text in rec.recommends.items()},
+            {"rinel": "Both are great.", "Seyfert": "Same studio."},
+        )
+
+    def test_properties_use_the_pages_of_mal(self):
+        anm = _make_anime_instance(52991)
+        anm._is_loaded = True
+        pages = {
+            "/_/reviews": bs4.BeautifulSoup(f"<div>{REVIEW_HTML}</div>", "lxml").div,
+            "/_/userrecs": bs4.BeautifulSoup(
+                f"<div>{RECOMMENDATION_HTML}</div>", "lxml"
+            ).div,
+        }
+        asked = []
+
+        def fake_page(url, _connect):
+            asked.append(url)
+            return next(page for suffix, page in pages.items() if url.endswith(suffix))
+
+        anm._Anime__reviews = anm._Anime__recommendations = None
+        with patch.object(global_functions, "get_content_wrapper_div", fake_page):
+            self.assertEqual([r.account.username for r in anm.reviews], ["tazillo"])
+            self.assertEqual([r.recommended.id for r in anm.recommendations], [11061])
+        self.assertEqual(
+            asked,
+            [
+                "https://myanimelist.net/anime/52991/_/reviews",
+                "https://myanimelist.net/anime/52991/_/userrecs",
+            ],
+        )
+
+
+class TestRelatedEntriesTable(unittest.TestCase):
+    def test_tiles_and_table_with_any_case(self):
+        html = """
+        <div id="root"><div class="related-entries">
+          <div class="entries-tile"><div class="entry"><div class="content">
+            <div class="relation">Sequel (TV)</div>
+            <div class="title"><a href="https://myanimelist.net/anime/2/x">x</a></div>
+          </div></div></div>
+          <table class="entries-table">
+            <tr><td class="ar">Side Story:</td><td><ul class="entries">
+              <li><a href="https://myanimelist.net/anime/3/x">a</a> (Special)</li>
+              <li><a href="https://myanimelist.net/manga/4/x">b</a></li></ul></td></tr>
+            <tr class="hide-entry"><td class="ar">Alternative Version:</td><td><ul class="entries">
+              <li><a href="https://myanimelist.net/anime/5/x">c</a></li></ul></td></tr>
+          </table>
+        </div></div>"""
+        root = bs4.BeautifulSoup(html, "lxml").find(id="root")
+        related = global_functions.parse_related_entries(root)
+        self.assertEqual({o.id for o in related["sequel"]}, {2})
+        self.assertEqual(
+            {(type(o).__name__, o.id) for o in related["side story"]},
+            {("Anime", 3), ("Manga", 4)},
+        )
+        self.assertEqual({o.id for o in related["alternative version"]}, {5})
+
+
+class TestTitleAndSynonyms(unittest.TestCase):
+    def test_title_without_the_english_title(self):
+        anm = _make_anime_instance(1)
+        cwd = _make_content_wrapper()
+        h1 = cwd.h1
+        h1.clear()
+        h1.append(
+            bs4.BeautifulSoup(
+                '<span class="h1-title"><span itemprop="name">One Punch-Man<br/>'
+                '<span class="title-english">One-Punch Man</span></span></span>',
+                "lxml",
+            ).span
+        )
+        _reload(anm, cwd)
+        self.assertEqual(anm.title, "One Punch-Man")
+
+    def test_synonyms_are_a_list(self):
+        anm = _make_anime_instance(1)
+        _reload(
+            anm,
+            _make_content_wrapper(synonyms="Frieren at the Funeral, Frieren The Slayer"),
+        )
+        self.assertEqual(anm.synonyms, ["Frieren at the Funeral", "Frieren The Slayer"])
+        self.assertEqual(_make_anime_instance(2)._Anime__synonyms, [])
