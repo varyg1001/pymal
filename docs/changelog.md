@@ -3,7 +3,7 @@
 ## 2.0.0 — 2026-10
 
 ### Breaking changes
-- `Anime.synonyms` and `Manga.synonyms` are a `list` of strings (MAL's comma separated list, split) instead of one string. This is what [pptu](https://github.com/encoding-hun/pptu) already expects (`synonyms[0]`); with a string it got the first character.
+- `Anime.synonyms` and `Manga.synonyms` are a `list` of strings (MAL's comma separated list, split) instead of one string.
 - **Login moved to MAL's official API.** MyAnimeList's website login now has a captcha, so `Account(username, password)`, `change_password()` and `auth_connect()` are gone. Log in with `Account(username).authorize(client_id)` once (official API; tokens are saved and refreshed automatically), or with the experimental `Account.login_with_cookie(...)` (see the [account docs](api/account.md#logging-in) for both). `Account.login(client_id, access_token, ...)` takes tokens you already have, `Account.api(...)` calls any API v2 endpoint.
 - `MyAnime` / `MyManga` are rewritten on the API (and about 1,400 lines smaller). The constructor is `MyAnime(mal_id, account)`. Removed, because the API doesn't have them: `my_id`, `my_storage_type`, `my_storage_value`, `my_download_episodes`, `my_fan_sub_groups`, `my_enable_discussion`, `my_downloaded_chapters`, `my_retail_volumes`, `to_xml()`, `increase_downloaded()` and `set_completed_download()`. New: `in_list`.
 - Invalid values assigned to `my_*` attributes raise `ValueError` (was `RuntimeError`); `my_priority` is 0–2 and `my_status` only accepts 1, 2, 3, 4 and 6.
