@@ -2,7 +2,17 @@
 
 ## Running the tests
 
-The test suite is fully offline — no MAL connection required.
+The suites in `tests/` (`test_fixes.py`, `test_connection.py`, `test_api.py`) are fully
+offline — no MAL connection required. The live account tests in `tests/account_objects/`
+are skipped automatically unless API access to a real account is configured:
+
+| Variable | |
+|----------|---|
+| `MAL_USERNAME` | the account name |
+| `MAL_CLIENT_ID` | client ID of your API app ([apiconfig](https://myanimelist.net/apiconfig)) |
+| `MAL_ACCESS_TOKEN` | an OAuth access token — optional if you ran `Account.authorize()` before (the saved token file is used) |
+| `MAL_SESSIONID` | the `MALSESSIONID` cookie, instead of the API variables (experimental; only status, score and progress are tested) |
+| `MAL_TEST_WRITE=1` | also run the tests that add, change and delete entries (`ADD_ANIME_ID` / `ADD_MANGA_ID` in `tests/constants_for_testing.py` must not be in the list) |
 
 ```bash
 # Run all tests
@@ -19,19 +29,18 @@ uv run pytest tests/test_fixes.py -v
 
 ```
 tests/
-├── test_fixes.py              # Main offline suite (40 tests)
-│                              # covers parsing, guards, imports, object behaviour
-├── constants_for_testing.py   # Shared test constants
-└── account_objects/           # Account-level test cases
-    ├── test_account_animes.py
-    ├── test_account_mangas.py
-    ├── test_my_anime.py
-    └── test_my_manga.py
+├── test_fixes.py              # Parsing, guards, imports, object behaviour
+├── test_connection.py         # Retries and "site unavailable" handling, helpers
+├── test_api.py                # OAuth, API client, account lists, MyAnime/MyManga (mocked API)
+├── constants_for_testing.py   # Shared test constants and live-test credentials
+└── account_objects/           # Live account tests (skipped without credentials)
+    ├── test_live_account.py
+    └── test_account_friends.py
 ```
 
 ## Guidelines
 
-**All tests must be offline.** Use `unittest.mock.patch` and inline HTML fixtures
+**New tests should be offline** (except the ones in `account_objects/`). Use `unittest.mock.patch` and inline HTML fixtures
 instead of real HTTP calls or saved HTML snapshots.
 
 ```python

@@ -4,58 +4,65 @@
 from pymal.account_objects.my_anime import MyAnime
 ```
 
-Extends [`Anime`](anime.md) with per-account tracking data.
-You get a `MyAnime` back when you call `anime.add(account)` or
-when iterating `account.animes`.
+Wraps an [`Anime`](anime.md) with the data of one account about it. Any attribute
+not listed below is proxied to the wrapped `Anime`.
+You get a `MyAnime` back when you call `anime.add(account)` or when iterating
+`account.animes`. It needs a [logged in](account.md#logging-in) account.
+
+Changing an attribute only changes it locally; call `update()` to send it to MAL.
 
 ## Additional attributes
 
-All attributes below require `my_reload()` to be called first
-(or are already populated when obtained via `account.animes`).
+Values are loaded from MAL on first use (already filled when obtained via `account.animes`).
 
 | Attribute | Type | Description |
 |-----------|------|-------------|
-| `my_id` | `int` | Entry ID in your list |
-| `my_status` | `int` | Watch status (1=Watching, 2=Completed, 3=On-Hold, 4=Dropped, 6=Plan to Watch) |
-| `my_score` | `int` | Your score (0–10) |
+| `in_list` | `bool` | Whether the account has this anime in its list |
+| `my_status` | `int` | 1=Watching, 2=Completed, 3=On-Hold, 4=Dropped, 6=Plan to Watch (`0` if not in the list) |
+| `my_score` | `int` | Score, 0 (none) to 10 |
 | `my_completed_episodes` | `int` | Episodes watched |
 | `my_is_rewatching` | `bool` | Whether you're rewatching |
-| `my_tags` | `frozenset` | Your tags |
-| `my_comments` | `str` | Your comments |
-| `my_priority` | `int` | Priority |
-| `my_start_date` | `str` | Your watch start date |
-| `my_end_date` | `str` | Your watch end date |
+| `my_tags` | `frozenset` | Tags (you can assign any set) |
+| `my_comments` | `str` | Comments |
+| `my_priority` | `int` | 0 (low) to 2 (high) |
+| `my_start_date` | `str` | Start date as `yyyymmdd`; `00000000` if unset |
+| `my_end_date` | `str` | Finish date as `yyyymmdd`; `00000000` if unset |
 | `my_times_rewatched` | `int` | Times rewatched |
-| `my_rewatch_value` | `int` | Rewatch value |
-| `my_storage_type` | `int` | Storage type |
-| `my_storage_value` | `float` | Storage value |
-| `my_download_episodes` | `int` | Downloaded episodes |
-| `my_fan_sub_groups` | `str` | Fansub groups |
+| `my_rewatch_value` | `int` | Rewatch value, 0 to 5 |
+
+Assigning an invalid value raises `ValueError`.
+
+With the experimental [cookie login](account.md#experimental-without-the-api-with-a-browser-cookie) only `my_status`, `my_score` and `my_completed_episodes` are read from MAL and sent back; the other attributes keep their defaults and `update()` leaves them as they are on MAL.
 
 ## Methods
 
 ### `my_reload()`
-Fetch personal tracking data from MAL.
+Re-fetch your data about this anime from MAL.
 
 ### `update()`
-Push local changes back to MAL.
+Send your changes to MAL. The anime is added to your list if it isn't there.
 
 ### `delete()`
 Remove this entry from your list.
 
-### `to_xml() -> str`
-Serialize entry to MAL API XML format.
+### `increase() -> bool`
+Add one watched episode (Plan to Watch becomes Watching). `False` if everything was watched.
+
+### `set_completed() -> bool`
+Mark all episodes watched and the status Completed. `False` if the episode count is unknown.
+
+### `is_completed`
+`True` if all episodes were watched.
 
 ## Example
 
 ```python
 from pymal.account import Account
 
-account = Account("your-username", "your-password")
-entry = list(account.animes)[0]
+account = Account("your-username")
+entry = next(iter(account.animes))
 
-entry.my_reload()
-print(entry.title)                  # inherited from Anime
+print(entry.title)                  # proxied to the wrapped Anime
 print(entry.my_score)
 print(entry.my_completed_episodes)
 

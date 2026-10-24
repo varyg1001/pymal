@@ -50,5 +50,7 @@ nav:
       - Account: api/account.md
       - MyAnime: api/my_anime.md
       - MyManga: api/my_manga.md
+      - Searches: api/searches.md
+      - Seasons: api/seasons.md
   - Testing: testing.md
   - Changelog: changelog.md
