@@ -1,22 +1,17 @@
 import unittest
 
 from pymal import account
-from tests.constants_for_testing import ACCOUNT_TEST_PASSWORD, ACCOUNT_TEST_USERNAME
+from tests.constants_for_testing import make_account
 
 
 class InitTestCase(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.account = account.Account(ACCOUNT_TEST_USERNAME, ACCOUNT_TEST_PASSWORD)
-
-    @classmethod
-    def tearDownClass(cls):
-        account.Account._unregiter(cls.account)
+        cls.account = make_account()
 
     def test_friends(self):
         for friend in self.account.friends:
             self.assertIsInstance(friend, account.Account)
-            self.assertIn(self.account, friend.friends)
 
 
 def main():

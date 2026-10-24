@@ -1,7 +1,7 @@
-__authors__ = ""
-__copyright__ = "(c) 2014, pymal"
+__authors__ = "tomer gelber, Aur Saraf, varyg"
+__copyright__ = "(c) 2014, tomergelber; (c) 2026, varyg"
 __license__ = "BSD License"
-__contact__ = "Name Of Current Guardian of this file <email@address>"
+__contact__ = "https://github.com/varyg1001/pymal"
 
 
 from pymal import exceptions, global_functions
@@ -47,7 +47,8 @@ class AccountFriends(ReloadedSet.ReloadedSetSingletonFactory):
         if div_wrapper is None:
             raise exceptions.FailedToParseError()
 
-        list_div_friend = div_wrapper.findAll(name="div", attrs={"class": "friendBlock"})
+        # An empty or private friend list simply has no entries.
+        list_div_friend = div_wrapper.select("div.boxlist-container.friend div.boxlist")
         self.__friends = frozenset(map(self.__parse_friend_div, list_div_friend))
 
         self._is_loaded = True
@@ -55,24 +56,20 @@ class AccountFriends(ReloadedSet.ReloadedSetSingletonFactory):
     @staticmethod
     def __parse_friend_div(div_friend):
         """
-
-        :param div_friend:
-        :type div_friend:
-
+        :param div_friend: the ``div.boxlist`` of one friend.
         :exception FailedToParseError
-
-        :return:
-        :rtype:
+        :return: the friend's account
+        :rtype: :class:`account.Account`
         """
         from pymal import account
 
-        div_pic = div_friend.find(name="div", attrs={"class": "picSurround"})
-        if div_pic is None:
+        link = div_friend.select_one("div.title a") or div_friend.find("a", href=True)
+        if link is None:
             raise exceptions.FailedToParseError(div_friend)
 
-        splited_friend_url = div_pic.a["href"].split("/profile/", 1)
+        splited_friend_url = link["href"].split("/profile/", 1)
         if len(splited_friend_url) != 2:
-            raise exceptions.FailedToParseError()
+            raise exceptions.FailedToParseError(link["href"])
 
         return account.Account(splited_friend_url[1])
 

@@ -1,7 +1,7 @@
-__authors__ = ""
-__copyright__ = "(c) 2014, pymal"
+__authors__ = "tomer gelber, Aur Saraf, varyg"
+__copyright__ = "(c) 2014, tomergelber; (c) 2026, varyg"
 __license__ = "BSD License"
-__contact__ = "Name Of Current Guardian of this file <email@address>"
+__contact__ = "https://github.com/varyg1001/pymal"
 
 __all__ = [
     "MyAnimeListApiError",
@@ -12,7 +12,11 @@ __all__ = [
 
 
 class MyAnimeListApiError(RuntimeError):
-    pass
+    """MyAnimeList's API answered with an error; ``status_code`` is the HTTP status."""
+
+    def __init__(self, message: str = "", status_code: int | None = None):
+        super().__init__(message)
+        self.status_code = status_code
 
 
 class MyAnimeListApiUpdateError(MyAnimeListApiError):

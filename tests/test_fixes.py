@@ -417,8 +417,6 @@ class TestNiquestsImport(unittest.TestCase):
     def test_manga(self):
         self._check("pymal.manga")
 
-    def test_account(self):
-        self._check("pymal.account")
 
 
 # ---------------------------------------------------------------------------

@@ -1,8 +1,9 @@
-__authors__ = ""
-__copyright__ = "(c) 2014, pymal"
+__authors__ = "tomer gelber, Aur Saraf, varyg"
+__copyright__ = "(c) 2014, tomergelber; (c) 2026, varyg"
 __license__ = "BSD License"
-__contact__ = "Name Of Current Guardian of this file <email@address>"
+__contact__ = "https://github.com/varyg1001/pymal"
 
+import re
 import time
 from urllib import request
 
@@ -20,7 +21,9 @@ __all__ = [
     "get_content_wrapper_div",
 ]
 
-__SESSION = niquests.Session()
+# MAL advertises HTTP/3 (Alt-Svc) but doesn't serve it reliably: skip it instead of
+# letting the first request fail and retry.
+__SESSION = niquests.Session(disable_http3=True)
 
 
 def url_fixer(url: str) -> str:
@@ -36,6 +39,7 @@ def _connect(
     headers: dict | None = None,
     auth=None,
     session: niquests.Session = __SESSION,
+    method: str | None = None,
 ) -> niquests.Response:
     """
     :param url: url
@@ -48,21 +52,53 @@ def _connect(
     :type auth: :class:`niquests.auth.HTTPBasicAuth`
     :param session: the session to connect to, otherwise using the default ones.
     :type session: :class:`niquests.Session`
+    :param method: the HTTP method; ``POST`` if there is data and ``GET`` otherwise.
+    :type method: :class:`str` or :class:`None`
 
     :return: the respond of the connection
     :rtype: :class:`niquests.Response`
+    :raises exceptions.SiteUnavailableError: when MAL can't be reached or keeps
+        answering with 429/5xx after :data:`consts.RETRY_NUMBER` attempts.
     """
     if headers is None:
         headers = {}
 
     url = url_fixer(url)
 
-    headers["User-Agent"] = consts.USER_AGENT
-    if data is not None:
-        sock = session.post(url, data=data, headers=headers, auth=auth)
-    else:
-        sock = session.get(url, headers=headers, auth=auth)
-    return sock
+    headers.setdefault("User-Agent", consts.USER_AGENT)
+    method = (method or ("POST" if data is not None else "GET")).upper()
+    # A POST may already have been applied by the server, so it is only retried
+    # when the connection itself failed, never on a timeout or a server error.
+    # GET, PUT and DELETE are idempotent and always safe to retry.
+    is_post = method == "POST"
+    reason = ""
+    for attempt in range(consts.RETRY_NUMBER):
+        if attempt:
+            time.sleep(consts.RETRY_SLEEP * attempt)
+        try:
+            sock = session.request(
+                method,
+                url,
+                data=data,
+                headers=headers,
+                auth=auth,
+                timeout=consts.REQUEST_TIMEOUT,
+            )
+        except niquests.exceptions.ConnectionError as e:
+            reason = f"connection failed: {e}"
+            continue
+        except niquests.exceptions.Timeout as e:
+            reason = f"timed out: {e}"
+            if is_post:
+                break
+            continue
+        if sock.status_code in consts.UNAVAILABLE_STATUS_CODES:
+            reason = f"HTTP {sock.status_code}"
+            if is_post:
+                break
+            continue
+        return sock
+    raise exceptions.SiteUnavailableError(url, reason)
 
 
 def connect(
@@ -75,6 +111,86 @@ def connect(
     :rtype : responded data
     """
     return _connect(url, data, headers, auth).text.strip()
+
+
+def fetch_public_list_json(url: str) -> list:
+    """
+    Fetch every entry of a public MAL ``load.json`` list; MAL returns it in pages.
+
+    :param url: the list url with a ``status`` query and no ``offset``.
+    :raises exceptions.SiteUnavailableError: when MAL can't be reached.
+    :return: all the entries (dicts); empty if the list isn't readable.
+    """
+    items = []
+    while True:
+        sock = _connect(f"{url}&offset={len(items)}")
+        if sock.status_code != 200:
+            break
+        try:
+            page = sock.json()
+        except ValueError:
+            break
+        if not isinstance(page, list) or not page:
+            break
+        items.extend(page)
+    return items
+
+
+def parse_header_stats(root: bs4.element.Tag) -> tuple[float, int, int]:
+    """
+    Read the score, rank and popularity from the stats header of an anime/manga page.
+
+    :return: ``(score, rank, popularity)``; ``0`` for every value MAL doesn't show.
+    """
+
+    def number(tag) -> int:
+        match = re.search(r"\d[\d,]*", tag.get_text()) if tag else None
+        return int(match.group().replace(",", "")) if match else 0
+
+    score_tag = root.find(class_="score-label")
+    try:
+        score = float(score_tag.get_text(strip=True)) if score_tag else 0.0
+    except ValueError:
+        score = 0.0  # "N/A"
+    rank = number(root.select_one("span.numbers.ranked strong"))
+    popularity = number(root.select_one("span.numbers.popularity strong"))
+    return score, rank, popularity
+
+
+def parse_related_entries(root: bs4.element.Tag) -> dict:
+    """
+    Read the "Related Entries" section of an anime/manga page: the first relations are
+    tiles, the rest are rows of a table.
+
+    :return: ``{relation: set of Anime/Manga}`` with the relation in lower case,
+        for example ``{"sequel": {...}, "side story": {...}}``.
+    """
+    from pymal import anime, manga
+
+    related = {}
+
+    def add(relation: str, href: str):
+        match = re.search(r"/(anime|manga)/(\d+)", href or "")
+        if match:
+            obj = anime.Anime if match.group(1) == "anime" else manga.Manga
+            related.setdefault(relation.strip().rstrip(":").lower(), set()).add(
+                obj(int(match.group(2)))
+            )
+
+    container = root.find(class_="related-entries")
+    if container is None:
+        return related
+    for entry in container.select("div.entry"):
+        relation_tag = entry.find(class_="relation")
+        link = entry.select_one("div.title a") or entry.find("a", href=True)
+        if relation_tag is not None and link is not None:
+            add(relation_tag.get_text(" ", strip=True).split("(")[0], link.get("href"))
+    for row in container.select("table.entries-table tr"):
+        label = row.find("td")
+        if label is not None:
+            for link in row.select("ul.entries a[href]"):
+                add(label.get_text(" ", strip=True), link.get("href"))
+    return related
 
 
 def get_next_index(i: int, list_of_tags: list) -> int:
@@ -139,8 +255,9 @@ def check_side_content_div(expected_text: str, div_node: bs4.element.Tag):
 
 def __get_myanimelist_div(url: str, connection_function) -> bs4.element.Tag:
     got_robot = False
-    for _ in range(consts.RETRY_NUMBER):
-        time.sleep(consts.RETRY_SLEEP)
+    for attempt in range(consts.RETRY_NUMBER):
+        if attempt:  # wait only before trying again
+            time.sleep(consts.RETRY_SLEEP)
         data = connection_function(url)
         html = bs4.BeautifulSoup(data, "lxml").html
         robots = (
@@ -210,6 +327,7 @@ def make_counter(counter_string: str) -> int | float:
     """
     getting mal site counter string format and return it as int
     """
-    if counter_string == "Unknown":
+    counter_string = counter_string.strip().replace(",", "")
+    if not counter_string.isdigit():
         return float("inf")
     return int(counter_string)

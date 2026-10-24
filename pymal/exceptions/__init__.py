@@ -1,7 +1,7 @@
-__authors__ = ""
-__copyright__ = "(c) 2014, pymal"
+__authors__ = "tomer gelber, Aur Saraf, varyg"
+__copyright__ = "(c) 2014, tomergelber; (c) 2026, varyg"
 __license__ = "BSD License"
-__contact__ = "Name Of Current Guardian of this file <email@address>"
+__contact__ = "https://github.com/varyg1001/pymal"
 
 from pymal.exceptions.failed_to_parse_error import *  # noqa: F401, F403, E402
 from pymal.exceptions.my_anime_list_api_error import *  # noqa: F401, F403, E402
@@ -11,6 +11,7 @@ __all__ = [
     "UnauthenticatedAccountError",
     "NotASeasonError",
     "GotRobotError",
+    "SiteUnavailableError",
 ]
 
 
@@ -27,3 +28,12 @@ class NotASeasonError(ValueError):
 
 class GotRobotError(RuntimeError):
     pass
+
+
+class SiteUnavailableError(RuntimeError):
+    """MyAnimeList could not be reached, timed out, or kept answering with a server error."""
+
+    def __init__(self, url: str, reason: str):
+        super().__init__(f"MyAnimeList is unavailable ({reason}): {url}")
+        self.url = url
+        self.reason = reason
