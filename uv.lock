@@ -535,7 +535,7 @@ wheels = [
 
 [[package]]
 name = "pymal-ng"
-version = "2.0.0"
+version = "2.0.1"
 source = { editable = "." }
 default-groups = "all"
 dependencies = [

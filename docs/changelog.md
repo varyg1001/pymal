@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.0.1 — 2026-11-13
+
+### Changes
+
+- Update dependencies
+
 ## 2.0.0 — 2026-10
 
 ### Breaking changes
